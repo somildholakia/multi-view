@@ -43,6 +43,18 @@ const Job = mongoose.models.MediaQaJob ?? mongoose.model<JobDoc>("MediaQaJob", j
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function allowedHosts(): string[] {
+  return (process.env.ALLOWED_MEDIA_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase().replace(/\.$/, ""))
+    .filter(Boolean);
+}
+
+function isAllowedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  return allowedHosts().some((allowed) => host === allowed || host.endsWith("." + allowed));
+}
+
 async function getJob(jobId: string) {
   return Job.findById(jobId);
 }
@@ -65,10 +77,30 @@ async function runOnePlaybackTest(
   let context: BrowserContext | undefined;
 
   try {
+    const media = new URL(mediaUrl);
+    if (media.protocol !== "https:" || !isAllowedHost(media.hostname)) {
+      throw new Error("Worker rejected a media URL outside the configured HTTPS allowlist.");
+    }
+
     context = await browser.newContext({
       viewport: { width: 900, height: 600 },
       reducedMotion: "reduce"
     });
+
+    // Block redirects, embeds and subresources outside the configured media-host allowlist.
+    await context.route("**/*", async (route) => {
+      try {
+        const requestUrl = new URL(route.request().url());
+        if (requestUrl.protocol === "https:" && isAllowedHost(requestUrl.hostname)) {
+          await route.continue();
+        } else {
+          await route.abort("blockedbyclient");
+        }
+      } catch {
+        await route.abort("blockedbyclient");
+      }
+    });
+
     const page = await context.newPage();
     await page.setContent('<!doctype html><html><body style="margin:0;background:#090d18"><video id="qa-video" autoplay muted playsinline controls style="width:100%;height:100%;object-fit:contain"></video></body></html>');
 
@@ -165,10 +197,9 @@ export async function runMediaQaJob(jobId: string): Promise<void> {
 
     await Job.findByIdAndUpdate(jobId, {
       $set: {
-        status: "running",
         workerRegion: region,
         startedAt: job.startedAt ?? new Date(),
-        lastError: null
+        ...(job.status === "queued" ? { status: "running" } : {})
       }
     });
 

@@ -1,10 +1,10 @@
 import dotenv from "dotenv";
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
-
 import IORedis from "ioredis";
 import mongoose from "mongoose";
 import { Worker } from "bullmq";
 import { runMediaQaJob } from "./runner.js";
+
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
 
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://127.0.0.1:6379");
 const connection = {

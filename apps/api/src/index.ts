@@ -1,17 +1,17 @@
-import dotenv from "dotenv";
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
-
 import crypto from "node:crypto";
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoose from "mongoose";
 import IORedis from "ioredis";
 import { Queue } from "bullmq";
-import rateLimit from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { Job } from "./model.js";
 import { validateAuthorizedMediaUrl } from "./policy.js";
+
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
 
 const port = Number(process.env.PORT ?? 4000);
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://127.0.0.1:6379");
