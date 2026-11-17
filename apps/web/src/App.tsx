@@ -48,6 +48,7 @@ function App() {
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
   const [apiOnline, setApiOnline] = useState(false);
+  const [previewGridOpen, setPreviewGridOpen] = useState(false);
 
   const request = useCallback(async (path: string, init: RequestInit = {}) => {
     const headers = new Headers(init.headers);
@@ -282,6 +283,39 @@ function App() {
             <div className="empty-state"><Activity size={28} /><strong>No QA task selected</strong><span>Create a task to see live playback progress here.</span></div>
           )}
         </section>
+
+
+        {selectedJob && (
+          <section className="panel preview-panel">
+            <div className="panel-heading">
+              <div><span className="section-kicker">LOCAL MULTI-VIEW</span><h2>12-window playback preview</h2></div>
+              <button className="secondary-btn small" onClick={() => setPreviewGridOpen((open) => !open)}>
+                {previewGridOpen ? "Close preview" : "Open 12 windows"}
+              </button>
+            </div>
+            <p className="preview-caption">Visual browser preview of the allowlisted media file. These local player panes are for checking layout and playback; they are not counted as background QA sessions.</p>
+            {previewGridOpen && (
+              <div className="video-preview-grid">
+                {Array.from({ length: 12 }, (_, index) => (
+                  <div className="video-preview-tile" key={index}>
+                    <div className="video-preview-label"><span>PLAYER {String(index + 1).padStart(2, "0")}</span><span>LOCAL PREVIEW</span></div>
+                    <video
+                      src={selectedJob.mediaUrl}
+                      controls
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onError={(event) => {
+                        const video = event.currentTarget;
+                        video.title = "This browser could not play the selected media format.";
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="panel history-panel">
           <div className="panel-heading"><div><span className="section-kicker">PERSISTENT QUEUE</span><h2>Recent tasks</h2></div><button className="icon-btn" onClick={() => void refresh()} aria-label="Refresh tasks"><RefreshCw size={16} /></button></div>
