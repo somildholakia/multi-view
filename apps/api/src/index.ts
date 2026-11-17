@@ -120,6 +120,8 @@ app.post("/api/jobs", writeLimiter, async (req, res, next) => {
     try {
       await queue.add("run-media-qa", { jobId: String(job._id) }, {
         jobId: String(job._id),
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: 100,
         removeOnFail: 100
       });

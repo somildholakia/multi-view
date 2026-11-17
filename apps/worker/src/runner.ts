@@ -87,7 +87,6 @@ async function runOnePlaybackTest(
       reducedMotion: "reduce"
     });
 
-    // Block redirects, embeds and subresources outside the configured media-host allowlist.
     await context.route("**/*", async (route) => {
       try {
         const requestUrl = new URL(route.request().url());
@@ -188,6 +187,11 @@ async function waitThroughBreak(jobId: string, until: Date): Promise<boolean> {
   while (Date.now() < until.getTime()) {
     const job = await getJob(jobId);
     if (!job || job.status === "stopped") return false;
+    if (job.status === "paused") {
+      const result = await waitForResume(jobId);
+      if (result === "stopped") return false;
+      continue;
+    }
     await wait(Math.min(2000, until.getTime() - Date.now()));
   }
   return true;
@@ -201,6 +205,7 @@ export async function runMediaQaJob(jobId: string): Promise<void> {
   const region = process.env.WORKER_REGION ?? "unassigned";
   const sessionDurationMs = Math.round(job.sessionMinutes * 60_000);
   let activeMinutesSinceBreak = 0;
+  let consecutiveFailedBatches = 0;
 
   try {
     browser = await chromium.launch({
@@ -266,6 +271,24 @@ export async function runMediaQaJob(jobId: string): Promise<void> {
 
       if (stopped) break;
 
+      if (failed === laneCount) {
+        consecutiveFailedBatches += 1;
+      } else {
+        consecutiveFailedBatches = 0;
+      }
+
+      if (consecutiveFailedBatches >= 5) {
+        await Job.findByIdAndUpdate(jobId, {
+          $set: {
+            status: "failed",
+            activeSessions: 0,
+            lastError: "Five consecutive batches failed. Check the media URL, codec and allowlist before retrying.",
+            finishedAt: new Date()
+          }
+        });
+        break;
+      }
+
       activeMinutesSinceBreak += current.sessionMinutes;
       const refreshed = await getJob(jobId);
       if (!refreshed) break;
@@ -283,18 +306,11 @@ export async function runMediaQaJob(jobId: string): Promise<void> {
           $set: { status: "on_break", activeSessions: 0, breakUntil }
         });
       }
-
-      if (failed === laneCount) {
-        await Job.findByIdAndUpdate(jobId, {
-          $set: { lastError: "Every session in the last batch failed. Check the media URL and worker logs." }
-        });
-        await wait(5000);
-      }
     }
 
     const finalJob = await getJob(jobId);
-    if (finalJob && finalJob.status === "stopped") {
-      await Job.findByIdAndUpdate(jobId, { $set: { activeSessions: 0, finishedAt: new Date() } });
+    if (finalJob && ["stopped", "failed"].includes(finalJob.status)) {
+      await Job.findByIdAndUpdate(jobId, { $set: { activeSessions: 0, finishedAt: finalJob.finishedAt ?? new Date() } });
     }
   } catch (error) {
     await Job.findByIdAndUpdate(jobId, {
