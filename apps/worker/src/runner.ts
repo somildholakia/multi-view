@@ -87,7 +87,7 @@ async function runOnePlaybackTest(
     await page.waitForFunction(() => {
       const state = window as typeof window & { __qaStarted?: boolean; __qaError?: string };
       return Boolean(state.__qaStarted || state.__qaError);
-    }, { timeout: 30_000 });
+    }, undefined, { timeout: 30_000 });
 
     const initial = await page.evaluate(() => {
       const state = window as typeof window & { __qaStarted?: boolean; __qaError?: string };
