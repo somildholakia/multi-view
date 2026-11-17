@@ -33,6 +33,11 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Validate Docker Compose configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+
       - name: Typecheck
         run: pnpm typecheck
 
