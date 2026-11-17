@@ -4,7 +4,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoose from "mongoose";
-import IORedis from "ioredis";
+import { Redis } from "ioredis";
 import { Queue } from "bullmq";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
@@ -27,7 +27,7 @@ function redisOptions() {
   };
 }
 
-const redis = new IORedis(redisUrl.toString(), { maxRetriesPerRequest: null });
+const redis = new Redis(redisUrl.toString(), { maxRetriesPerRequest: null });
 const queue = new Queue("media-qa", { connection: redisOptions() });
 
 const app = express();

@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import IORedis from "ioredis";
+import { Redis } from "ioredis";
 import mongoose from "mongoose";
 import { Worker } from "bullmq";
 import { runMediaQaJob } from "./runner.js";
@@ -16,7 +16,7 @@ const connection = {
   maxRetriesPerRequest: null
 };
 
-const redis = new IORedis(redisUrl.toString(), { maxRetriesPerRequest: null });
+const redis = new Redis(redisUrl.toString(), { maxRetriesPerRequest: null });
 
 async function start() {
   await mongoose.connect(process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/multiview_qa");
