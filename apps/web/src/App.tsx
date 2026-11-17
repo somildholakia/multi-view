@@ -35,11 +35,6 @@ const emptyForm = {
   breakMinutes: 5
 };
 
-function formatDuration(minutes: number) {
-  if (minutes < 1) return Math.round(minutes * 60) + " sec";
-  return minutes + " min";
-}
-
 function statusLabel(status: JobStatus) {
   return status.replace("_", " ");
 }
@@ -66,11 +61,11 @@ function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [health, data] = await Promise.all([
-        fetch(API_URL + "/api/health").then((r) => r.ok),
+      const [, data] = await Promise.all([
+        request("/api/health"),
         request("/api/jobs")
       ]);
-      setApiOnline(health);
+      setApiOnline(true);
       const nextJobs = (data.jobs ?? []) as QaJob[];
       setJobs(nextJobs);
       setSelectedId((current) => current ?? nextJobs[0]?._id ?? null);

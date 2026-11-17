@@ -22,6 +22,9 @@ export function validateAuthorizedMediaUrl(raw: string): string {
   if (url.protocol !== "https:") {
     throw new Error("Media URLs must use HTTPS.");
   }
+  if (url.username || url.password) {
+    throw new Error("Credentials must not be embedded in media URLs.");
+  }
 
   if (blockedHosts.some((host) => isSameHostOrSubdomain(hostname, host))) {
     throw new Error("YouTube URLs are not supported. Use a media file hosted on a domain you control.");
@@ -29,7 +32,7 @@ export function validateAuthorizedMediaUrl(raw: string): string {
 
   const allowedHosts = (process.env.ALLOWED_MEDIA_HOSTS ?? "")
     .split(",")
-    .map((host) => host.trim().toLowerCase())
+    .map((host) => host.trim().toLowerCase().replace(/\.$/, ""))
     .filter(Boolean);
 
   if (allowedHosts.length === 0) {

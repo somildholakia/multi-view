@@ -78,7 +78,7 @@ async function runOnePlaybackTest(
 
   try {
     const media = new URL(mediaUrl);
-    if (media.protocol !== "https:" || !isAllowedHost(media.hostname)) {
+    if (media.protocol !== "https:" || media.username || media.password || !isAllowedHost(media.hostname)) {
       throw new Error("Worker rejected a media URL outside the configured HTTPS allowlist.");
     }
 
@@ -123,12 +123,19 @@ async function runOnePlaybackTest(
 
     const initial = await page.evaluate(() => {
       const state = window as typeof window & { __qaStarted?: boolean; __qaError?: string };
-      return { started: Boolean(state.__qaStarted), error: state.__qaError };
+      const video = document.querySelector<HTMLVideoElement>("#qa-video");
+      return {
+        started: Boolean(state.__qaStarted),
+        error: state.__qaError,
+        currentTime: video?.currentTime ?? 0
+      };
     });
 
     if (!initial.started) throw new Error(initial.error ?? "The video did not start.");
 
     let remaining = durationMs;
+    let lastCurrentTime = initial.currentTime;
+
     while (remaining > 0) {
       const currentJob = await getJob(jobId);
       if (!currentJob || currentJob.status === "stopped") return "stopped";
@@ -146,6 +153,7 @@ async function runOnePlaybackTest(
       const playback = await page.evaluate(() => {
         const video = document.querySelector<HTMLVideoElement>("#qa-video");
         return {
+          currentTime: video?.currentTime ?? 0,
           paused: video?.paused ?? true,
           ended: video?.ended ?? false,
           error: video?.error?.message ?? null
@@ -159,6 +167,11 @@ async function runOnePlaybackTest(
       if (playback.paused && remaining > step) {
         throw new Error("Playback stopped before the QA interval completed.");
       }
+      if (!playback.ended && playback.currentTime <= lastCurrentTime + 0.1) {
+        throw new Error("The media timeline did not advance during the playback test.");
+      }
+
+      lastCurrentTime = playback.currentTime;
       remaining -= step;
     }
 
