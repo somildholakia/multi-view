@@ -53,6 +53,8 @@ function allowedHosts(): string[] {
 
 function isAllowedHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "");
+  const blockedHosts = ["youtube.com", "youtu.be", "youtube-nocookie.com", "googlevideo.com"];
+  if (blockedHosts.some((blocked) => host === blocked || host.endsWith("." + blocked))) return false;
   return allowedHosts().includes(host);
 }
 
