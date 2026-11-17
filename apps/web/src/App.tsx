@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, AlertCircle, CheckCircle2, Clock3, KeyRound, Layers3,
   LoaderCircle, Pause, Play, Plus, RefreshCw, ShieldCheck, Square,
@@ -49,6 +49,8 @@ function App() {
   const [error, setError] = useState("");
   const [apiOnline, setApiOnline] = useState(false);
   const [previewGridOpen, setPreviewGridOpen] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState("");
+  const previewPlayers = useRef<(HTMLVideoElement | null)[]>([]);
 
   const request = useCallback(async (path: string, init: RequestInit = {}) => {
     const headers = new Headers(init.headers);
@@ -132,6 +134,33 @@ function App() {
   const canPause = selectedJob && ["queued", "running"].includes(selectedJob.status);
   const canResume = selectedJob?.status === "paused";
   const canStop = selectedJob && !["completed", "stopped", "failed"].includes(selectedJob.status);
+
+  function playAllPreviews() {
+    const players = previewPlayers.current.filter((player): player is HTMLVideoElement => player !== null);
+    setPreviewMessage("");
+    void Promise.allSettled(players.map((player) => player.play())).then((results) => {
+      const blocked = results.filter((result) => result.status === "rejected").length;
+      setPreviewMessage(blocked ? `${blocked} player(s) could not start. Check the media format and browser support.` : "All local preview players started.");
+    });
+  }
+
+  function pauseAllPreviews() {
+    previewPlayers.current.forEach((player) => player?.pause());
+    setPreviewMessage("All local preview players paused.");
+  }
+
+  function togglePreviewGrid() {
+    if (previewGridOpen) {
+      previewPlayers.current.forEach((player) => {
+        if (player) {
+          player.pause();
+          player.currentTime = 0;
+        }
+      });
+      setPreviewMessage("");
+    }
+    setPreviewGridOpen((open) => !open);
+  }
 
   return (
     <main className="app-shell">
@@ -289,9 +318,15 @@ function App() {
           <section className="panel preview-panel">
             <div className="panel-heading">
               <div><span className="section-kicker">LOCAL MULTI-VIEW</span><h2>12-window playback preview</h2></div>
-              <button className="secondary-btn small" onClick={() => setPreviewGridOpen((open) => !open)}>
-                {previewGridOpen ? "Close preview" : "Open 12 windows"}
-              </button>
+              <div className="preview-actions">
+                {previewGridOpen && <>
+                  <button className="secondary-btn small" onClick={pauseAllPreviews}><Pause size={13} /> Pause all</button>
+                  <button className="primary-btn small" onClick={playAllPreviews}><Play size={13} /> Play all</button>
+                </>}
+                <button className="secondary-btn small" onClick={togglePreviewGrid}>
+                  {previewGridOpen ? "Close preview" : "Open 12 windows"}
+                </button>
+              </div>
             </div>
             <p className="preview-caption">Visual browser preview of the allowlisted media file. These local player panes are for checking layout and playback; they are not counted as background QA sessions.</p>
             {previewGridOpen && (
@@ -300,6 +335,7 @@ function App() {
                   <div className="video-preview-tile" key={index}>
                     <div className="video-preview-label"><span>PLAYER {String(index + 1).padStart(2, "0")}</span><span>LOCAL PREVIEW</span></div>
                     <video
+                      ref={(node) => { previewPlayers.current[index] = node; }}
                       src={selectedJob.mediaUrl}
                       controls
                       muted
@@ -314,6 +350,7 @@ function App() {
                 ))}
               </div>
             )}
+            {previewMessage && <p className="preview-message">{previewMessage}</p>}
           </section>
         )}
 

@@ -116,3 +116,7 @@ h2{font:600 17px "Space Grotesk";margin:4px 0 0;letter-spacing:-.3px}
 .video-preview-tile video{display:block;width:100%;aspect-ratio:16/9;background:#02050a;object-fit:contain}
 @media(max-width:1000px){.video-preview-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.video-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.preview-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.primary-btn.small{height:30px;padding:0 10px;font-size:10px}
+.preview-message{font-size:10px;color:#9fb4e8;margin:12px 0 0}
