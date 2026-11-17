@@ -2,7 +2,7 @@
 FROM mcr.microsoft.com/playwright:v1.65.1-noble AS builder
 
 WORKDIR /workspace
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+RUN npm install --global pnpm@10.33.0
 
 COPY . .
 RUN pnpm install --no-frozen-lockfile
