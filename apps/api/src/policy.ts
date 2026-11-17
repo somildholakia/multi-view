@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 const blockedHosts = [
   "youtube.com",
   "youtu.be",
@@ -25,6 +27,11 @@ export function validateAuthorizedMediaUrl(raw: string): string {
   if (url.username || url.password) {
     throw new Error("Credentials must not be embedded in media URLs.");
   }
+  if (isIP(hostname) !== 0 || hostname === "localhost" ||
+      hostname.endsWith(".localhost") || hostname.endsWith(".local") ||
+      hostname.endsWith(".internal")) {
+    throw new Error("Private, local and IP-literal media hosts are not supported.");
+  }
 
   if (blockedHosts.some((host) => isSameHostOrSubdomain(hostname, host))) {
     throw new Error("YouTube URLs are not supported. Use a media file hosted on a domain you control.");
@@ -39,8 +46,8 @@ export function validateAuthorizedMediaUrl(raw: string): string {
     throw new Error("No authorized media hosts are configured. Set ALLOWED_MEDIA_HOSTS first.");
   }
 
-  if (!allowedHosts.some((host) => isSameHostOrSubdomain(hostname, host))) {
-    throw new Error("This host is not allowlisted. Add a domain you own to ALLOWED_MEDIA_HOSTS.");
+  if (!allowedHosts.includes(hostname)) {
+    throw new Error("This exact host is not allowlisted. Add its hostname to ALLOWED_MEDIA_HOSTS.");
   }
 
   return url.toString();

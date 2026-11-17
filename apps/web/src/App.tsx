@@ -271,8 +271,8 @@ function App() {
                 {Array.from({ length: selectedJob.concurrency }, (_, i) => {
                   const active = i < selectedJob.activeSessions;
                   return <div className={"session-card " + (active ? "session-active" : "")} key={i}>
-                    <div className="session-top"><span>QA SESSION {String(i + 1).padStart(2, "0")}</span>{active ? <LoaderCircle className="spin" size={15} /> : <span className="session-idle-dot" />}</div>
-                    <strong>{active ? "Testing playback" : "Standby"}</strong>
+                    <div className="session-top"><span>QA SESSION {String(i + 1).padStart(2, "0")}</span>{selectedJob.status === "paused" ? <Pause size={14} /> : active ? <LoaderCircle className="spin" size={15} /> : <span className="session-idle-dot" />}</div>
+                    <strong>{selectedJob.status === "paused" ? "Paused" : active ? "Testing playback" : "Standby"}</strong>
                     <small>{selectedJob.workerRegion || "Region pending"}</small>
                   </div>;
                 })}

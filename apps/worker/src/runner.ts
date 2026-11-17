@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { hostnameResolvesOnlyToPublicAddresses } from "./network-policy.js";
 import { chromium, type Browser, type BrowserContext } from "playwright";
 
 type Status = "queued" | "running" | "paused" | "on_break" | "completed" | "stopped" | "failed";
@@ -52,7 +53,7 @@ function allowedHosts(): string[] {
 
 function isAllowedHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "");
-  return allowedHosts().some((allowed) => host === allowed || host.endsWith("." + allowed));
+  return allowedHosts().includes(host);
 }
 
 async function getJob(jobId: string) {
@@ -79,7 +80,10 @@ async function runOnePlaybackTest(
   try {
     const media = new URL(mediaUrl);
     if (media.protocol !== "https:" || media.username || media.password || !isAllowedHost(media.hostname)) {
-      throw new Error("Worker rejected a media URL outside the configured HTTPS allowlist.");
+      throw new Error("Worker rejected a media URL outside the configured HTTPS host allowlist.");
+    }
+    if (!(await hostnameResolvesOnlyToPublicAddresses(media.hostname))) {
+      throw new Error("Worker rejected a host that does not resolve exclusively to public IP addresses.");
     }
 
     context = await browser.newContext({
@@ -90,7 +94,8 @@ async function runOnePlaybackTest(
     await context.route("**/*", async (route) => {
       try {
         const requestUrl = new URL(route.request().url());
-        if (requestUrl.protocol === "https:" && isAllowedHost(requestUrl.hostname)) {
+        if (requestUrl.protocol === "https:" && isAllowedHost(requestUrl.hostname) &&
+            await hostnameResolvesOnlyToPublicAddresses(requestUrl.hostname)) {
           await route.continue();
         } else {
           await route.abort("blockedbyclient");
@@ -147,8 +152,17 @@ async function runOnePlaybackTest(
         continue;
       }
 
-      const step = Math.min(5_000, remaining);
+      const step = Math.min(2_000, remaining);
       await page.waitForTimeout(step);
+      const afterWaitJob = await getJob(jobId);
+      if (!afterWaitJob || afterWaitJob.status === "stopped") return "stopped";
+      if (afterWaitJob.status === "paused") {
+        await page.evaluate(() => document.querySelector<HTMLVideoElement>("#qa-video")?.pause());
+        const state = await waitForResume(jobId);
+        if (state === "stopped") return "stopped";
+        await page.evaluate(() => document.querySelector<HTMLVideoElement>("#qa-video")?.play());
+        continue;
+      }
       const playback = await page.evaluate(() => {
         const video = document.querySelector<HTMLVideoElement>("#qa-video");
         return {
@@ -315,14 +329,23 @@ export async function runMediaQaJob(jobId: string): Promise<void> {
   } catch (error) {
     await Job.findByIdAndUpdate(jobId, {
       $set: {
-        status: "failed",
         activeSessions: 0,
-        lastError: error instanceof Error ? error.message : "Worker failure.",
-        finishedAt: new Date()
+        lastError: error instanceof Error ? error.message : "Worker failure."
       }
     });
     throw error;
   } finally {
     await browser?.close().catch(() => undefined);
   }
+}
+
+export async function markMediaQaJobFailed(jobId: string, message: string): Promise<void> {
+  await Job.findByIdAndUpdate(jobId, {
+    $set: {
+      status: "failed",
+      activeSessions: 0,
+      lastError: message,
+      finishedAt: new Date()
+    }
+  });
 }

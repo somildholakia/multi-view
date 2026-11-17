@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { Redis } from "ioredis";
 import mongoose from "mongoose";
 import { Worker } from "bullmq";
-import { runMediaQaJob } from "./runner.js";
+import { markMediaQaJobFailed, runMediaQaJob } from "./runner.js";
 
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
 
@@ -30,7 +30,14 @@ async function start() {
   );
 
   worker.on("completed", (job) => console.log("Completed queue job:", job.id));
-  worker.on("failed", (job, error) => console.error("Queue job failed:", job?.id, error));
+  worker.on("failed", async (job, error) => {
+    console.error("Queue job failed:", job?.id, error);
+    if (job && job.attemptsMade >= Number(job.opts.attempts ?? 1)) {
+      await markMediaQaJobFailed(String(job.data.jobId), error.message).catch((dbError) => {
+        console.error("Could not persist final worker failure:", dbError);
+      });
+    }
+  });
   console.log("Media QA worker ready in region:", process.env.WORKER_REGION ?? "unassigned");
 
   const shutdown = async () => {
