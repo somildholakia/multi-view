@@ -1,22 +1,97 @@
 services:
   mongodb:
     image: mongo:7
-    container_name: multiview-mongodb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    ports:
+      - "127.0.0.1:27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
-    container_name: multiview-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      WEB_ORIGIN: ${WEB_ORIGIN_DOCKER:-http://localhost:8080}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:?Set API_AUTH_TOKEN in .env}
+      MONGODB_URI: mongodb://mongodb:27017/multiview_qa
+      REDIS_URL: redis://redis:6379
+      ALLOWED_MEDIA_HOSTS: ${ALLOWED_MEDIA_HOSTS:?Set ALLOWED_MEDIA_HOSTS in .env}
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health',{headers:{authorization:'Bearer '+process.env.API_AUTH_TOKEN}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:?Set API_AUTH_TOKEN in .env}
+      MONGODB_URI: mongodb://mongodb:27017/multiview_qa
+      REDIS_URL: redis://redis:6379
+      ALLOWED_MEDIA_HOSTS: ${ALLOWED_MEDIA_HOSTS:?Set ALLOWED_MEDIA_HOSTS in .env}
+      WORKER_REGION: ${WORKER_REGION:-local-docker}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-12}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   mongodb_data:
