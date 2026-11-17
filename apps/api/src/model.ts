@@ -21,8 +21,8 @@ export interface MediaQaJob {
   activeSessions: number;
   workerRegion: string;
   status: JobStatus;
-  breakUntil?: Date;
-  lastError?: string;
+  breakUntil?: Date | null;
+  lastError?: string | null;
   startedAt?: Date;
   finishedAt?: Date;
   createdAt: Date;

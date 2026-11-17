@@ -1,4 +1,6 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "../../.env" });
+
 import IORedis from "ioredis";
 import mongoose from "mongoose";
 import { Worker } from "bullmq";

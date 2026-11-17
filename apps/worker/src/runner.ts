@@ -15,8 +15,8 @@ interface JobDoc {
   activeSessions: number;
   workerRegion: string;
   status: Status;
-  breakUntil?: Date;
-  lastError?: string;
+  breakUntil?: Date | null;
+  lastError?: string | null;
   startedAt?: Date;
   finishedAt?: Date;
 }
@@ -91,8 +91,7 @@ async function runOnePlaybackTest(
 
     const initial = await page.evaluate(() => {
       const state = window as typeof window & { __qaStarted?: boolean; __qaError?: string };
-      const video = document.querySelector<HTMLVideoElement>("#qa-video");
-      return { started: Boolean(state.__qaStarted), error: state.__qaError, readyState: video?.readyState ?? 0 };
+      return { started: Boolean(state.__qaStarted), error: state.__qaError };
     });
 
     if (!initial.started) throw new Error(initial.error ?? "The video did not start.");
@@ -115,7 +114,6 @@ async function runOnePlaybackTest(
       const playback = await page.evaluate(() => {
         const video = document.querySelector<HTMLVideoElement>("#qa-video");
         return {
-          currentTime: video?.currentTime ?? 0,
           paused: video?.paused ?? true,
           ended: video?.ended ?? false,
           error: video?.error?.message ?? null
