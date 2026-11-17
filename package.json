@@ -8,6 +8,7 @@
     "dev:api": "pnpm --filter @multiview/api dev",
     "dev:worker": "pnpm --filter @multiview/worker dev",
     "dev:web": "pnpm --filter @multiview/web dev --host 0.0.0.0",
+    "test": "pnpm --filter @multiview/api test",
     "build": "pnpm --filter @multiview/api build && pnpm --filter @multiview/worker build && pnpm --filter @multiview/web build",
     "typecheck": "pnpm --filter @multiview/api typecheck && pnpm --filter @multiview/worker typecheck && pnpm --filter @multiview/web typecheck"
   },
