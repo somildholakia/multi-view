@@ -1,0 +1,18 @@
+{
+  "name": "multi-view-media-qa",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "concurrently -n api,worker,web -c blue,green,magenta \"pnpm dev:api\" \"pnpm dev:worker\" \"pnpm dev:web\"",
+    "dev:api": "pnpm --filter @multiview/api dev",
+    "dev:worker": "pnpm --filter @multiview/worker dev",
+    "dev:web": "pnpm --filter @multiview/web dev --host 0.0.0.0",
+    "build": "pnpm --filter @multiview/api build && pnpm --filter @multiview/worker build && pnpm --filter @multiview/web build",
+    "typecheck": "pnpm --filter @multiview/api typecheck && pnpm --filter @multiview/worker typecheck && pnpm --filter @multiview/web typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.9.3"
+  }
+}

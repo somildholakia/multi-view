@@ -1,0 +1,24 @@
+{
+  "name": "@multiview/worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "install:browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "bullmq": "^5.56.0",
+    "ioredis": "^5.7.0",
+    "mongoose": "^8.18.0",
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  }
+}
