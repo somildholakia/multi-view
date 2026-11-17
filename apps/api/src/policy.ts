@@ -20,7 +20,7 @@ export function validateAuthorizedMediaUrl(raw: string): string {
     throw new Error("Enter a valid direct media URL.");
   }
 
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (url.protocol !== "https:") {
     throw new Error("Media URLs must use HTTPS.");
   }
