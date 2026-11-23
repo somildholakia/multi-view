@@ -6,6 +6,9 @@ A modular, installable multi-website workspace inspired by split-screen browser 
 
 - Up to 20 URL panels in one workspace, with a custom panel-count selector from 1 to 20.
 - Paste one URL to load that same website in every visible panel.
+- Convert YouTube watch, Shorts, live and playlist links into embedded players.
+- Play direct MP4, WebM, Ogg and other browser-supported video URLs with native controls.
+- Embed supported Vimeo and Dailymotion video links.
 - Responsive grid layouts that adapt to the selected panel count.
 - Independent address bars, reload buttons, focus mode and open-in-new-tab actions.
 - Open every configured website in its own browser tab, then close the MultiView dashboard while those tabs stay open.
@@ -76,6 +79,8 @@ Each feature is intentionally isolated so bookmarks, per-panel settings, history
 ## Important browser limitations
 
 MultiView uses normal browser iframes, not a native browser engine. A website can block iframe embedding using its `X-Frame-Options` or Content Security Policy `frame-ancestors` response header. Those sites cannot be forced to render by this frontend; use **Open in a new tab** for them.
+
+YouTube watch, Shorts, live and playlist URLs are converted to YouTube embed-player URLs; Vimeo and Dailymotion video links are also converted to their player URLs. Direct MP4, WebM and Ogg video files use the browser video player. The video owner or provider can still disable embedding, restrict a video by region or age, require authentication, or reject playback. Tap **Play** in each player; browsers generally prevent audible autoplay. HLS (.m3u8) playback depends on the browser, and some formats may not be supported on every device.
 
 Third-party cookie rules and website login policies can also differ inside embedded pages. This first version does not provide separate browser profiles or isolated cookie jars.
 
