@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { addBookmark, removeBookmark } from "../src/features/bookmarks/bookmark-manager.js";
-import { addUrls, changeLayout, reorderViews } from "../src/features/views/view-manager.js";
+import { addUrls, changeLayout, reorderViews, setAllViewsUrl } from "../src/features/views/view-manager.js";
 import {
   createWorkspace,
   duplicateWorkspace,
   normalizeAppState
 } from "../src/features/workspaces/workspace-model.js";
 
-test("adding five sites expands a four-panel workspace to six", () => {
+test("adding five sites expands a four-panel workspace to five", () => {
   const workspace = createWorkspace();
   const urls = [
     "one.example", "two.example", "three.example",
@@ -16,15 +16,26 @@ test("adding five sites expands a four-panel workspace to six", () => {
   ];
 
   assert.equal(addUrls(workspace, urls), 5);
-  assert.equal(workspace.layout, 6);
+  assert.equal(workspace.layout, 5);
   assert.equal(workspace.views.filter(view => view.url).length, 5);
 });
 
-test("a workspace cannot contain more than eight websites", () => {
+test("a workspace supports up to 20 websites but rejects 21", () => {
   const workspace = createWorkspace();
-  const urls = Array.from({ length: 9 }, (_, index) => "site" + (index + 1) + ".example");
+  const urls = Array.from({ length: 20 }, (_, index) => "site" + (index + 1) + ".example");
 
-  assert.throws(() => addUrls(workspace, urls), /up to 8 websites/i);
+  assert.equal(addUrls(workspace, urls), 20);
+  assert.equal(workspace.layout, 20);
+  assert.equal(workspace.views.filter(view => view.url).length, 20);
+  assert.throws(() => addUrls(workspace, ["extra.example"]), /up to 20 windows/i);
+});
+
+test("one pasted URL is applied to every visible window", () => {
+  const workspace = createWorkspace();
+  changeLayout(workspace, 20);
+
+  assert.equal(setAllViewsUrl(workspace, "example.com/watch"), 20);
+  assert.equal(workspace.views.slice(0, 20).every(view => view.url === "https://example.com/watch"), true);
 });
 
 test("changing layouts preserves websites in panels that become hidden", () => {
