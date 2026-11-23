@@ -1,6 +1,7 @@
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/app.css";
+import "./styles/layouts.css";
 import { MultiViewApp } from "./app.js";
 const app = new MultiViewApp(document.querySelector("#app"));
 app.start();
