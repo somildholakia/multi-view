@@ -57,3 +57,31 @@ test("converts Vimeo and Dailymotion links to their player URLs",()=>{
 test("leaves ordinary website URLs as website embeds",()=>{
   assert.equal(getMediaDescriptor("https://example.com/video-page").type,"website");
 });
+
+
+test("YouTube videos use muted autoplay when enabled",()=>{
+  const media=getMediaDescriptor("https://www.youtube.com/watch?v=dQw4w9WgXcQ",{autoPlay:true});
+  assert.equal(media.type,"youtube");
+  assert.equal(new URL(media.src).searchParams.get("autoplay"),"1");
+  assert.equal(new URL(media.src).searchParams.get("mute"),"1");
+});
+
+test("YouTube autoplay remains disabled when the preference is off",()=>{
+  const media=getMediaDescriptor("https://youtu.be/dQw4w9WgXcQ",{autoPlay:false});
+  assert.equal(new URL(media.src).searchParams.has("autoplay"),false);
+});
+
+test("Vimeo and Dailymotion embeds receive muted autoplay settings",()=>{
+  const vimeo=getMediaDescriptor("https://vimeo.com/123456789",{autoPlay:true});
+  const dailymotion=getMediaDescriptor("https://dailymotion.com/video/x8abcde",{autoPlay:true});
+  assert.equal(new URL(vimeo.src).searchParams.get("autoplay"),"1");
+  assert.equal(new URL(vimeo.src).searchParams.get("muted"),"1");
+  assert.equal(new URL(dailymotion.src).searchParams.get("autoplay"),"1");
+  assert.equal(new URL(dailymotion.src).searchParams.get("mute"),"1");
+});
+
+test("YouTube playlist embeds request muted autoplay when enabled",()=>{
+  const media=getMediaDescriptor("https://youtube.com/playlist?list=PL123456789",{autoPlay:true});
+  assert.equal(new URL(media.src).searchParams.get("autoplay"),"1");
+  assert.equal(new URL(media.src).searchParams.get("mute"),"1");
+});
