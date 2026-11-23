@@ -1,6 +1,7 @@
 import { createId } from "../../core/ids.js";
 import { normalizeUrl } from "../../core/url.js";
-export const LAYOUTS=[1,2,3,4,6,8];
+export const MAX_PANELS=20;
+export const LAYOUTS=Array.from({length:MAX_PANELS},(_,index)=>index+1);
 export function createView(url=""){return{id:createId("view"),url};}
 export function createWorkspace(name="My workspace"){
   return{id:createId("workspace"),name,layout:4,refreshInterval:0,views:Array.from({length:4},()=>createView())};
@@ -9,13 +10,14 @@ export function duplicateWorkspace(source,name){
   const copy=createWorkspace(name||`${source?.name||"Workspace"} copy`);
   copy.layout=LAYOUTS.includes(Number(source?.layout))?Number(source.layout):4;
   copy.refreshInterval=[0,15,30,60,300].includes(Number(source?.refreshInterval))?Number(source.refreshInterval):0;
-  copy.views=(Array.isArray(source?.views)?source.views:[]).slice(0,8).map(view=>createView(typeof view?.url==="string"?view.url:""));
+  copy.views=(Array.isArray(source?.views)?source.views:[]).slice(0,MAX_PANELS).map(view=>createView(typeof view?.url==="string"?view.url:""));
   while(copy.views.length<copy.layout)copy.views.push(createView());
   return copy;
 }
 export function normalizeWorkspace(input){
-  const layout=LAYOUTS.includes(Number(input?.layout))?Number(input.layout):4;
-  const incoming=Array.isArray(input?.views)?input.views.slice(0,8):[];
+  const requestedLayout=Number(input?.layout);
+  const layout=Number.isInteger(requestedLayout)&&requestedLayout>=1&&requestedLayout<=MAX_PANELS?requestedLayout:4;
+  const incoming=Array.isArray(input?.views)?input.views.slice(0,MAX_PANELS):[];
   const views=incoming.map(view=>({id:typeof view?.id==="string"?view.id:createId("view"),url:typeof view?.url==="string"?view.url:""}));
   while(views.length<layout)views.push(createView());
   const refresh=Number(input?.refreshInterval);
@@ -40,10 +42,10 @@ export function normalizeAppState(input){
       };
     }catch{return null;}
   }).filter(Boolean);
-  return{version:2,activeWorkspaceId,workspaces,bookmarks};
+  return{version:3,activeWorkspaceId,workspaces,bookmarks};
 }
 export function fitLayout(workspace,minimumCount){
-  const nextLayout=LAYOUTS.find(layout=>layout>=minimumCount)||8;
+  const nextLayout=Math.min(MAX_PANELS,Math.max(1,Math.ceil(Number(minimumCount)||1)));
   workspace.layout=Math.max(workspace.layout,nextLayout);
   while(workspace.views.length<workspace.layout)workspace.views.push(createView());
 }
