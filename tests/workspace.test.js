@@ -38,6 +38,17 @@ test("one pasted URL is applied to every visible window", () => {
   assert.equal(workspace.views.slice(0, 20).every(view => view.url === "https://example.com/watch"), true);
 });
 
+test("adding another website after reducing the visible count expands to show it", () => {
+  const workspace = createWorkspace();
+  addUrls(workspace, ["first.example", "second.example", "third.example"]);
+  changeLayout(workspace, 1);
+
+  addUrls(workspace, ["fourth.example"]);
+
+  assert.equal(workspace.layout, 4);
+  assert.equal(workspace.views[3].url, "https://fourth.example/");
+});
+
 test("changing layouts preserves websites in panels that become hidden", () => {
   const workspace = createWorkspace();
   addUrls(workspace, ["first.example", "second.example"]);
