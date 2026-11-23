@@ -14,7 +14,7 @@ const APP_MARKUP = `
     <div class="sidebar-section"><div class="sidebar-heading"><span>Workspaces</span><button id="new-workspace" class="sidebar-add" aria-label="Create workspace" title="Create workspace">+</button></div><div id="workspace-list" class="workspace-list"></div></div>
     <div class="sidebar-spacer"></div>
     <div class="sidebar-card"><div class="sidebar-card__icon"><span class="pulse"></span></div><div><b>Saved on this device</b><p>Your workspace stays in this browser. No account required.</p></div></div>
-    <div class="sidebar-bottom"><span class="status-led"></span><span>Local mode</span><span class="sidebar-version">v0.1</span></div>
+    <div class="sidebar-bottom"><span class="status-led"></span><span>Local mode</span><span class="sidebar-version">v0.2</span></div>
   </aside>
   <main class="main-area">
     <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-separator">/</span><strong id="breadcrumb-name">My workspace</strong></div>
@@ -30,7 +30,7 @@ const APP_MARKUP = `
         <div class="control-panel__bottom"><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Refreshes while this app is open</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Each panel works independently</span></div><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Each panel works independently</span></div><div class="views-heading__actions"><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -66,6 +66,7 @@ export class MultiViewApp {
       this.refreshPaused=!this.refreshPaused;this.configureRefresh();this.renderRefreshControls();
     });
     $("#reload-all").addEventListener("click",()=>this.reloadAll(true));
+    $("#open-all").addEventListener("click",()=>this.openAllViews());
     $("#add-sites-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#bulk-urls");
       const urls=input.value.split(/[\n,]+/).map(line=>line.trim()).filter(Boolean);
@@ -146,6 +147,12 @@ export class MultiViewApp {
     const view=this.workspace.views.find(item=>item.id===id);const frame=this.panelNodes.get(id)?._parts?.frame;
     if(!view?.url||!frame)return this.toast("Add a website to this panel first.");
     frame.src=view.url;this.toast(`Reloading ${new URL(view.url).hostname}.`);
+  }
+  openAllViews(){
+    const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
+    if(!targets.length)return this.toast("Add at least one website before opening tabs.");
+    targets.forEach(view=>window.open(view.url,"_blank","noopener,noreferrer"));
+    this.toast(`Requested ${targets.length} browser tabs. Allow pop-ups for MultiView if any were blocked; keep those tabs open after closing this dashboard.`);
   }
   reloadAll(showToast=true){
     let count=0;this.workspace.views.slice(0,this.workspace.layout).forEach(view=>{
