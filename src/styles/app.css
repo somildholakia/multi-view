@@ -121,3 +121,18 @@
 @media(max-width:1180px){.app-shell{grid-template-columns:215px minmax(0,1fr)}.hero-art{margin-right:1%;transform:scale(.86);transform-origin:center right}.add-sites{align-items:flex-start;flex-direction:column}.add-sites__form{width:100%}}
 @media(max-width:850px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;display:block;height:auto;min-height:0;padding:13px 18px;border-right:0;border-bottom:1px solid var(--panel-border)}.brand{padding:0}.sidebar-section,.sidebar-card,.sidebar-bottom,.sidebar-spacer{display:none}.topbar{min-height:53px;padding:0 18px}.page-content{padding:28px 18px 20px}.hero-row{min-height:178px}.hero-art{position:absolute;right:-6px;opacity:.48;transform:scale(.72);transform-origin:right center}.hero-row>div:first-child{position:relative;z-index:1}.hero-description{max-width:410px}}
 @media(max-width:620px){.privacy-label{display:none}.hero-row{min-height:185px}.hero-row h1{font-size:37px;letter-spacing:-1.8px}.hero-description{max-width:330px;font-size:11px}.hero-art{right:-55px;opacity:.3}.workspace-heading{align-items:flex-start;flex-direction:column;gap:10px}.control-panel__top,.control-panel__bottom{align-items:flex-start;flex-direction:column}.layout-options{align-self:stretch;justify-content:space-between}.layout-choice{flex:1}.refresh-control{gap:8px}.refresh-note{flex-basis:100%}.refresh-actions{width:100%}.refresh-actions button{flex:1}.add-sites__form{flex-direction:column}.add-sites-button{justify-content:center}.view-grid{grid-template-columns:minmax(0,1fr)}.view-card{min-height:365px}.app-footer{align-items:flex-start;flex-direction:column}}
+/* Layout presets — the selected panel count also controls the desktop grid. */
+.view-grid[data-layout="1"] { grid-template-columns: minmax(0, 1fr); }
+.view-grid[data-layout="2"], .view-grid[data-layout="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.view-grid[data-layout="3"], .view-grid[data-layout="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.view-grid[data-layout="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) {
+  .view-grid[data-layout="3"], .view-grid[data-layout="6"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .view-grid[data-layout="8"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 850px) {
+  .view-grid[data-layout="3"], .view-grid[data-layout="6"], .view-grid[data-layout="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .view-grid[data-layout] { grid-template-columns: minmax(0, 1fr); }
+}
