@@ -7,6 +7,7 @@ A modular, installable multi-website workspace inspired by split-screen browser 
 - Up to 8 URL panels in one workspace.
 - Layout presets: 1, 2, 3, 4, 6 and 8 panels.
 - Independent address bars, reload buttons, focus mode and open-in-new-tab actions.
+- Open every configured website in its own browser tab, then close the MultiView dashboard while those tabs stay open.
 - Paste multiple URLs at once (one per line).
 - Multiple named workspaces, automatically saved in local browser storage.
 - Per-workspace auto-refresh (15 seconds, 30 seconds, 1 minute or 5 minutes).
@@ -71,7 +72,9 @@ MultiView uses normal browser iframes, not a native browser engine. A website ca
 
 Third-party cookie rules and website login policies can also differ inside embedded pages. This first version does not provide separate browser profiles or isolated cookie jars.
 
-Installing the PWA gives the app its own launch icon and preserves workspace configuration on that browser/device. The service worker caches the app shell; it does not keep remote website pages, videos, timers or iframe JavaScript running after the app is closed. Auto-refresh runs only while MultiView is open and visible.
+Installing the PWA gives the app its own launch icon and preserves workspace configuration on that browser/device. You can use **Open all in tabs** and then close the MultiView dashboard; the websites remain in their own ordinary browser tabs while the browser keeps those tabs open. If pop-ups are blocked, allow them for the MultiView site. Closing those tabs or the browser ends those page sessions, and browsers may suspend inactive tabs to save resources.
+
+A website/PWA cannot keep arbitrary remote pages, videos or iframe JavaScript running after every page and browser window has been closed. A service worker is event-driven and may be stopped by the browser when idle. Auto-refresh inside the MultiView dashboard runs only while the dashboard is open and visible. For persistent sessions that survive closing every tab, this project would need a native Android/desktop browser shell or a browser extension; a PWA alone cannot provide that behavior.
 
 ## Privacy
 
