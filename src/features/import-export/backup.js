@@ -2,7 +2,7 @@ import { normalizeAppState } from "../workspaces/workspace-model.js";
 export function downloadBackup(state) {
   const payload={
     app:"MultiView",
-    version:3,
+    version:4,
     exportedAt:new Date().toISOString(),
     workspaces:state.workspaces,
     bookmarks:state.bookmarks||[]
