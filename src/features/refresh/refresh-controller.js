@@ -13,7 +13,7 @@ export class RefreshController {
     this.paused=Boolean(paused);
     if(!this.intervalMs||this.paused)return;
     this.nextTickAt=Date.now()+this.intervalMs;
-    this.timer=window.setInterval(()=>this.checkDue(),Math.min(this.intervalMs,1000));
+    this.timer=window.setInterval(()=>this.checkDue(),this.intervalMs);
   }
 
   checkDue() {
