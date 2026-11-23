@@ -1,7 +1,7 @@
 import { el, icon } from "./core/dom.js";
 import { loadState, saveState } from "./core/storage.js";
 import { createWorkspace, duplicateWorkspace, LAYOUTS } from "./features/workspaces/workspace-model.js";
-import { addUrls, changeLayout, clearView, reorderViews, setViewUrl } from "./features/views/view-manager.js";
+import { addUrls, changeLayout, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
 import { createViewCard, updateViewCard } from "./features/views/view-card.js";
 import { RefreshController } from "./features/refresh/refresh-controller.js";
 import { downloadBackup, readBackup } from "./features/import-export/backup.js";
@@ -27,9 +27,10 @@ const APP_MARKUP = `
         <div class="hero-art" aria-hidden="true"><div class="art-window art-window--back"><i></i><i></i><i></i><b></b><b></b></div><div class="art-window art-window--front"><i></i><i></i><i></i><div class="art-grid"><b></b><b></b><b></b><b></b></div></div><span class="art-spark art-spark--one">✳</span><span class="art-spark art-spark--two">✦</span></div></div>
       <div class="workspace-heading"><div class="workspace-name-group"><span class="section-kicker">CURRENT WORKSPACE</span><input id="workspace-name" class="workspace-name-input" maxlength="48" aria-label="Workspace name"/></div><div class="workspace-stats"><span id="active-count">0 active</span><span class="stat-divider"></span><span id="panel-count">4 panels</span><button id="duplicate-workspace" class="quiet-button workspace-action" type="button" title="Duplicate this workspace">Duplicate</button><button id="delete-workspace" class="quiet-button workspace-action workspace-action--danger" type="button" title="Delete this workspace">Delete</button></div></div>
       <section class="control-panel">
-        <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>View layout</b><small>Choose how your windows are arranged</small></div></div><div class="layout-options" id="layout-options"></div></div>
+        <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>View layout</b><small>Choose how your windows are arranged</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
         <div class="control-panel__bottom"><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Refreshes while this app is open</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
+      <section class="all-windows-site"><div class="all-windows-site__copy"><span class="all-windows-site__icon">↗</span><div><b>Open the same website in every window</b><p>Paste one URL to load it in all <strong id="all-windows-total">4</strong> panels.</p></div></div><form id="all-windows-form" class="all-windows-site__form"><input id="all-windows-url" type="text" inputmode="url" placeholder="https://example.com" aria-label="Website URL for all windows"/><button class="all-windows-site__button" type="submit"><span>↗</span> Open in all windows</button></form></section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
       <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
@@ -58,9 +59,8 @@ export class MultiViewApp {
       this.toast("A new workspace is ready.","success");
     });
     $("#workspace-name").addEventListener("change",event=>{this.workspace.name=event.target.value.trim().slice(0,48)||"My workspace";this.persistAndRender();});
-    $("#layout-options").addEventListener("click",event=>{
-      const choice=event.target.closest("[data-layout]");if(!choice)return;
-      changeLayout(this.workspace,Number(choice.dataset.layout));this.focusedViewId=null;this.persistAndRender();
+    $("#panel-count-select").addEventListener("change",event=>{
+      changeLayout(this.workspace,Number(event.target.value));this.focusedViewId=null;this.persistAndRender();
     });
     $("#refresh-interval").addEventListener("change",event=>{this.workspace.refreshInterval=Number(event.target.value);this.refreshPaused=false;this.persistAndRender();});
     $("#pause-refresh").addEventListener("click",()=>{
@@ -89,6 +89,14 @@ export class MultiViewApp {
       if(!urls.length)return this.toast("Paste at least one website address.");
       try{const count=addUrls(this.workspace,urls);input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
       catch(error){this.toast(error.message,"error");}
+    });
+    $("#all-windows-form").addEventListener("submit",event=>{
+      event.preventDefault();const input=$("#all-windows-url");
+      try{
+        const count=setAllViewsUrl(this.workspace,input.value);
+        input.value="";this.focusedViewId=null;this.persistAndRender();
+        this.toast(`Opened the website in all ${count} windows.`,"success");
+      }catch(error){this.toast(error.message,"error");}
     });
     $("#export-button").append(icon("download"));
     $("#export-button").addEventListener("click",()=>{downloadBackup(this.state);this.toast("Workspace backup exported.","success");});
@@ -129,12 +137,19 @@ export class MultiViewApp {
     const workspace=this.workspace;this.root.querySelector("#breadcrumb-name").textContent=workspace.name;
     const input=this.root.querySelector("#workspace-name");if(document.activeElement!==input)input.value=workspace.name;
     this.root.querySelector("#active-count").textContent=`${workspace.views.slice(0,workspace.layout).filter(view=>view.url).length} active`;
-    this.root.querySelector("#panel-count").textContent=`${workspace.layout} panels`;
+    this.root.querySelector("#panel-count").textContent=`${workspace.layout} windows`;
+    this.root.querySelector("#all-windows-total").textContent=String(workspace.layout);
     this.root.querySelector("#refresh-interval").value=String(workspace.refreshInterval);
   }
   renderLayoutOptions(){
-    const mount=this.root.querySelector("#layout-options");mount.replaceChildren();
-    LAYOUTS.forEach(layout=>mount.append(el("button",{type:"button",className:`layout-choice ${this.workspace.layout===layout?"is-selected":""}`,text:String(layout),dataset:{layout},title:`${layout} view layout`,attrs:{"aria-label":`${layout} view layout`,"aria-pressed":String(this.workspace.layout===layout)}})));
+    const select=this.root.querySelector("#panel-count-select");
+    const options=LAYOUTS.map(count=>{
+      const option=document.createElement("option");
+      option.value=String(count);option.textContent=`${count} window${count===1?"":"s"}`;
+      return option;
+    });
+    select.replaceChildren(...options);
+    select.value=String(this.workspace.layout);
   }
   renderRefreshControls(){
     const pause=this.root.querySelector("#pause-refresh");pause.disabled=!this.workspace.refreshInterval;
