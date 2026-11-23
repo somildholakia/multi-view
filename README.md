@@ -10,6 +10,9 @@ A modular, installable multi-website workspace inspired by split-screen browser 
 - Open every configured website in its own browser tab, then close the MultiView dashboard while those tabs stay open.
 - Paste multiple URLs at once (one per line).
 - Multiple named workspaces, automatically saved in local browser storage.
+- Duplicate or delete workspaces without losing the original.
+- Save favourite websites to a quick-access shelf and launch them into the next available panel.
+- Drag panels to reorder their position.
 - Per-workspace auto-refresh (15 seconds, 30 seconds, 1 minute or 5 minutes).
 - JSON workspace backup and restore.
 - Installable PWA shell with a basic offline app-shell cache.
@@ -47,6 +50,8 @@ src/
   features/
     import-export/backup.js      Workspace backup and restore
     refresh/refresh-controller.js Auto-refresh lifecycle
+    bookmarks/
+      bookmark-manager.js       Saved website operations
     views/
       view-card.js               A single website panel
       view-manager.js            URL and layout operations
@@ -56,6 +61,7 @@ src/
     tokens.css                   Theme tokens
     base.css                     Global styles and reset
     app.css                      Responsive application styles
+    layouts.css                  Responsive panel grid presets
   ui/
     toast.js                     Small feedback notifications
 public/
@@ -74,7 +80,7 @@ Third-party cookie rules and website login policies can also differ inside embed
 
 Installing the PWA gives the app its own launch icon and preserves workspace configuration on that browser/device. You can use **Open all in tabs** and then close the MultiView dashboard; the websites remain in their own ordinary browser tabs while the browser keeps those tabs open. If pop-ups are blocked, allow them for the MultiView site. Closing those tabs or the browser ends those page sessions, and browsers may suspend inactive tabs to save resources.
 
-A website/PWA cannot keep arbitrary remote pages, videos or iframe JavaScript running after every page and browser window has been closed. A service worker is event-driven and may be stopped by the browser when idle. Auto-refresh inside the MultiView dashboard runs only while the dashboard is open and visible. For persistent sessions that survive closing every tab, this project would need a native Android/desktop browser shell or a browser extension; a PWA alone cannot provide that behavior.
+MultiView is intentionally a website-only product. A website/PWA cannot keep arbitrary remote pages, videos or iframe JavaScript running after every page and browser window has been closed. A service worker is event-driven and may be stopped by the browser when idle. Auto-refresh inside the MultiView dashboard runs only while the dashboard is open and visible. Use **Open all in tabs** to leave the websites running in ordinary browser tabs after closing the dashboard; the browser remains responsible for how long those tabs stay active.
 
 ## Privacy
 
