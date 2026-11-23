@@ -9,6 +9,9 @@ import { RefreshController } from "./features/refresh/refresh-controller.js";
 import { downloadBackup, readBackup } from "./features/import-export/backup.js";
 import { createToastHost } from "./ui/toast.js";
 import { addBookmark, removeBookmark } from "./features/bookmarks/bookmark-manager.js";
+import { FREE_PROXY_COUNTRIES, FREE_PROXY_DURATIONS, formatProxyTimeLeft, getFreeProxyLaunchUrl, getProxyCountry, normalizeProxySettings } from "./features/proxy/free-proxy.js";
+
+const PROXY_SETTINGS_KEY = "multi-view.free-proxy-settings.v1";
 
 const APP_MARKUP = `
 <div class="app-shell">
@@ -33,6 +36,23 @@ const APP_MARKUP = `
         <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox" checked/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Refreshes while this app is open</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
       <section class="all-windows-site"><div class="all-windows-site__copy"><span class="all-windows-site__icon">↗</span><div><b>Open the same website in every window</b><p>Paste one URL to load it in all <strong id="all-windows-total">4</strong> panels.</p></div></div><form id="all-windows-form" class="all-windows-site__form"><input id="all-windows-url" type="text" inputmode="url" placeholder="https://example.com" aria-label="Website URL for all windows"/><button class="all-windows-site__button" type="submit"><span>↗</span> Open in all windows</button></form></section>
+      <section class="free-proxy-panel">
+        <div class="free-proxy-panel__top">
+          <div class="free-proxy-panel__copy">
+            <span class="free-proxy-panel__icon">🌐</span>
+            <div><span class="section-kicker">OPTIONAL THIRD-PARTY ROUTING</span><b>Free country proxy</b><p>Launch a separate Shifter proxy tab for any panel. MultiView copies that panel's URL for you.</p></div>
+          </div>
+          <div class="free-proxy-panel__settings">
+            <label>COUNTRY<select id="proxy-country" aria-label="Free proxy country"></select></label>
+            <label>AUTO-CLOSE<select id="proxy-duration" aria-label="Proxy tab auto-close timer"></select></label>
+          </div>
+        </div>
+        <div class="free-proxy-panel__bottom">
+          <p>External browser tabs only. IPs may repeat. Do not use for banking or sensitive logins; streaming sites such as YouTube may not work reliably.</p>
+          <div class="free-proxy-panel__sessions"><span id="proxy-session-status">No proxy tabs launched</span><button id="close-proxy-sessions" class="quiet-button" type="button" disabled>Close proxy tabs</button></div>
+          <div id="proxy-session-list" class="proxy-session-list" aria-live="polite"></div>
+        </div>
+      </section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
       <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
@@ -45,11 +65,14 @@ export class MultiViewApp {
   constructor(root){
     this.root=root;this.state=loadState();this.panelNodes=new Map();this.focusedViewId=null;
     this.installPrompt=null;this.refreshPaused=false;this.refreshController=new RefreshController(()=>this.reloadAll(false));this.toast=null;
+    this.proxySettings=this.loadProxySettings();this.proxySessions=new Map();this.proxyTicker=null;
   }
   start(){
     this.root.innerHTML=APP_MARKUP;this.toast=createToastHost(this.root.querySelector("#toast-mount"));
     this.bindStaticEvents();this.render();
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&this.focusedViewId){this.focusedViewId=null;this.renderViews();}});
+    document.addEventListener("visibilitychange",()=>this.updateProxySessions());
+    window.addEventListener("focus",()=>this.updateProxySessions());
   }
   get workspace(){return this.state.workspaces.find(item=>item.id===this.state.activeWorkspaceId)||this.state.workspaces[0];}
   setInstallPrompt(prompt){this.installPrompt=prompt;const button=this.root.querySelector("#install-button");if(button)button.hidden=!prompt;}
@@ -70,6 +93,15 @@ export class MultiViewApp {
       this.toast(event.target.checked?"Muted video autoplay enabled.":"Video autoplay disabled.");
     });
     $("#refresh-interval").addEventListener("change",event=>{this.workspace.refreshInterval=Number(event.target.value);this.refreshPaused=false;this.persistAndRender();});
+    $("#proxy-country").addEventListener("change",event=>{
+      this.proxySettings=normalizeProxySettings({...this.proxySettings,country:event.target.value});
+      this.saveProxySettings();this.renderProxySessions();
+    });
+    $("#proxy-duration").addEventListener("change",event=>{
+      this.proxySettings=normalizeProxySettings({...this.proxySettings,durationMinutes:Number(event.target.value)});
+      this.saveProxySettings();
+    });
+    $("#close-proxy-sessions").addEventListener("click",()=>this.closeProxySessions());
     $("#pause-refresh").addEventListener("click",()=>{
       if(!this.workspace.refreshInterval)return this.toast("Choose a refresh interval first.");
       this.refreshPaused=!this.refreshPaused;this.configureRefresh();this.renderRefreshControls();
@@ -136,7 +168,7 @@ export class MultiViewApp {
     });
   }
   persistAndRender(){if(!saveState(this.state))this.toast("Browser storage is full. Export a backup before continuing.","error");this.render();}
-  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBookmarks();this.renderViews();this.configureRefresh();}
   renderWorkspaces(){
     const list=this.root.querySelector("#workspace-list");list.replaceChildren();
     this.state.workspaces.forEach(workspace=>{
@@ -176,11 +208,132 @@ export class MultiViewApp {
     this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh all"}));
   }
   configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused);}
+  loadProxySettings(){
+    try{return normalizeProxySettings(JSON.parse(localStorage.getItem(PROXY_SETTINGS_KEY)||"{}"));}
+    catch{return normalizeProxySettings();}
+  }
+  saveProxySettings(){
+    try{localStorage.setItem(PROXY_SETTINGS_KEY,JSON.stringify(this.proxySettings));}
+    catch{this.toast("Could not save proxy preferences on this browser.","error");}
+  }
+  renderProxyControls(){
+    const countrySelect=this.root.querySelector("#proxy-country");
+    const durationSelect=this.root.querySelector("#proxy-duration");
+    if(!countrySelect||!durationSelect)return;
+    countrySelect.replaceChildren(...FREE_PROXY_COUNTRIES.map(country=>{
+      const option=document.createElement("option");
+      option.value=country.code;option.textContent=`${country.flag} ${country.name}`;
+      return option;
+    }));
+    durationSelect.replaceChildren(...FREE_PROXY_DURATIONS.map(minutes=>{
+      const option=document.createElement("option");
+      option.value=String(minutes);
+      option.textContent=minutes===0?"No auto-close":minutes<60?`${minutes} minutes`:`${minutes/60} hour${minutes===60?"":"s"}`;
+      return option;
+    }));
+    countrySelect.value=this.proxySettings.country;
+    durationSelect.value=String(this.proxySettings.durationMinutes);
+  }
+  async copyProxyTarget(url){
+    try{
+      if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);return true;}
+    }catch{}
+    try{
+      const field=document.createElement("textarea");
+      field.value=url;field.setAttribute("readonly","");
+      field.style.position="fixed";field.style.opacity="0";field.style.pointerEvents="none";
+      document.body.append(field);field.select();
+      const copied=document.execCommand("copy");field.remove();return copied;
+    }catch{return false;}
+  }
+  launchProxyForView(viewId){
+    const view=this.workspace.views.find(item=>item.id===viewId);
+    if(!view?.url)return this.toast("Add a website to this panel first.");
+    const country=getProxyCountry(this.proxySettings.country);
+    const opened=window.open(getFreeProxyLaunchUrl(country.code),"_blank");
+    if(!opened)return this.toast("The browser blocked the proxy tab. Allow pop-ups for MultiView and try again.","error");
+    try{opened.opener=null;}catch{}
+    const existing=this.proxySessions.get(viewId);
+    if(existing&&!existing.tab?.closed){try{existing.tab.close();}catch{}}
+    const panelNumber=this.workspace.views.findIndex(item=>item.id===viewId)+1;
+    const durationMinutes=this.proxySettings.durationMinutes;
+    this.proxySessions.set(viewId,{
+      tab:opened,viewId,panelNumber,workspaceName:this.workspace.name,countryName:country.name,
+      expiresAt:durationMinutes?Date.now()+durationMinutes*60_000:null,expired:false
+    });
+    this.ensureProxyTicker();this.renderProxySessions();
+    this.copyProxyTarget(view.url).then(copied=>{
+      const media=getMediaDescriptor(view.url);
+      const videoWarning=media.type!=="website"?" Video streaming may fail on this free proxy.":"";
+      this.toast(copied
+        ?`Panel ${panelNumber}: URL copied. Paste it into the ${country.name} proxy tab and complete the verification.${videoWarning}`
+        :`Panel ${panelNumber}: proxy opened. Copy the panel URL and paste it into the ${country.name} proxy tab.${videoWarning}`,
+        copied?"success":"info");
+    });
+  }
+  ensureProxyTicker(){
+    if(this.proxyTicker!==null)return;
+    this.proxyTicker=window.setInterval(()=>this.updateProxySessions(),1000);
+  }
+  updateProxySessions(){
+    if(!this.proxySessions.size){
+      if(this.proxyTicker!==null){window.clearInterval(this.proxyTicker);this.proxyTicker=null;}
+      this.renderProxySessions();return;
+    }
+    let changed=false;
+    const now=Date.now();
+    for(const [id,session] of this.proxySessions){
+      if(!session.tab||session.tab.closed){this.proxySessions.delete(id);changed=true;continue;}
+      if(session.expiresAt&&now>=session.expiresAt&&!session.expired){
+        session.expired=true;session.expiresAt=null;
+        try{session.tab.close();}catch{}
+        if(session.tab.closed)this.proxySessions.delete(id);
+        else session.manualCloseRequired=true;
+        changed=true;
+      }
+    }
+    this.renderProxySessions();
+    if(!this.proxySessions.size&&this.proxyTicker!==null){window.clearInterval(this.proxyTicker);this.proxyTicker=null;}
+    if(changed&&[...this.proxySessions.values()].some(session=>session.manualCloseRequired)){
+      this.toast("A proxy timer ended. Android may delay tab closure in the background; close any tab marked as expired manually.","info");
+    }
+  }
+  renderProxySessions(){
+    const mount=this.root.querySelector("#proxy-session-list");
+    const status=this.root.querySelector("#proxy-session-status");
+    const closeButton=this.root.querySelector("#close-proxy-sessions");
+    if(!mount||!status||!closeButton)return;
+    mount.replaceChildren();
+    const sessions=[...this.proxySessions.values()];
+    status.textContent=sessions.length?`${sessions.length} proxy tab${sessions.length===1?"":"s"} tracked`:"No proxy tabs launched";
+    closeButton.disabled=!sessions.length;
+    sessions.forEach(session=>{
+      const remaining=session.expiresAt?formatProxyTimeLeft(session.expiresAt-Date.now()):"No timer";
+      const detail=session.manualCloseRequired?"Timer ended · close this tab manually":session.expired?"Closing…":session.expiresAt?`Auto-close in ${remaining}`:"Auto-close off";
+      mount.append(el("div",{className:"proxy-session-chip"},[
+        el("strong",{text:`Panel ${session.panelNumber}`}),
+        el("span",{text:session.countryName}),
+        el("small",{text:detail})
+      ]));
+    });
+  }
+  closeProxySessions(){
+    if(!this.proxySessions.size)return;
+    let manual=0;
+    for(const [id,session] of this.proxySessions){
+      try{session.tab?.close();}catch{}
+      if(session.tab?.closed)this.proxySessions.delete(id);
+      else{session.expired=true;session.expiresAt=null;session.manualCloseRequired=true;manual++;}
+    }
+    this.renderProxySessions();
+    if(!this.proxySessions.size&&this.proxyTicker!==null){window.clearInterval(this.proxyTicker);this.proxyTicker=null;}
+    this.toast(manual?`${manual} tab${manual===1?"":"s"} could not be closed automatically. Close them from the browser tab switcher.`:"All tracked proxy tabs were closed.","success");
+  }
   renderViews(){
     const grid=this.root.querySelector("#view-grid");grid.dataset.layout=String(this.workspace.layout);
     const handlers={
       navigate:(id,raw)=>{try{setViewUrl(this.workspace,id,raw);this.persistAndRender();}catch(error){this.toast(error.message,"error");}},
-      reload:id=>this.reloadView(id),open:id=>this.openView(id),
+      reload:id=>this.reloadView(id),open:id=>this.openView(id),proxy:id=>this.launchProxyForView(id),
       clear:id=>{clearView(this.workspace,id);if(this.focusedViewId===id)this.focusedViewId=null;this.persistAndRender();},
       bookmark:id=>this.toggleBookmark(id),
       reorder:(sourceId,targetId)=>{if(reorderViews(this.workspace,sourceId,targetId)){this.focusedViewId=null;this.persistAndRender();this.toast("Panels reordered.","success");}},

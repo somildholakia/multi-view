@@ -122,7 +122,8 @@ export function createViewCard(view,index,handlers) {
     action("bookmark","Save to quick access",()=>handlers.bookmark(view.id)),
     action("expand","Focus this view",()=>handlers.focus(view.id)),
     action("trash","Clear this view",()=>handlers.clear(view.id),true),
-    action("pip","Open direct video in Picture-in-Picture",()=>handlers.pictureInPicture(view.id))
+    action("pip","Open direct video in Picture-in-Picture",()=>handlers.pictureInPicture(view.id)),
+    action("globe","Open this panel through the free country proxy",()=>handlers.proxy(view.id))
   ]);
   top.append(identity,actions);
   const form=el("form",{className:"view-url-form"});
