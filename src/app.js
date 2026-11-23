@@ -188,13 +188,6 @@ export class MultiViewApp {
       pictureInPicture:id=>this.togglePictureInPicture(id),
       progress:(id,url,seconds)=>this.saveVideoProgress(id,url,seconds)
     };
-    const fragment=document.createDocumentFragment();const visibleViews=this.workspace.views.slice(0,this.workspace.layout);
-    visibleViews.forEach((view,index)=>{
-      let card=this.panelNodes.get(view.id);
-      if(!card){card=createViewCard(view,index,handlers);this.panelNodes.set(view.id,card);}
-      updateViewCard(card,view,index,this.focusedViewId===view.id,this.state.bookmarks.some(item=>item.url===view.url),this.workspace.autoPlayVideos!==false);
-      card.hidden=Boolean(this.focusedViewId&&this.focusedViewId!==view.id);fragment.append(card);
-    });
     const visibleViews=this.workspace.views.slice(0,this.workspace.layout);
     const visibleIds=new Set();
     visibleViews.forEach((view,index)=>{
