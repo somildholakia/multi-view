@@ -72,6 +72,14 @@ test("panel reordering moves the selected website without losing it", () => {
   assert.equal(workspace.views[2].url, "https://second.example/");
 });
 
+test("autoplay is enabled for new workspaces and survives duplication", () => {
+  const workspace = createWorkspace("Videos");
+  assert.equal(workspace.autoPlayVideos, true);
+  workspace.autoPlayVideos = false;
+  const copy = duplicateWorkspace(workspace);
+  assert.equal(copy.autoPlayVideos, false);
+});
+
 test("workspace duplication copies URLs but generates independent panel IDs", () => {
   const workspace = createWorkspace("Research");
   addUrls(workspace, ["example.com", "openai.com"]);
