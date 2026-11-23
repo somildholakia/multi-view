@@ -4,11 +4,12 @@ A modular, installable multi-website workspace inspired by split-screen browser 
 
 ## What is included
 
-- Up to 8 URL panels in one workspace.
-- Layout presets: 1, 2, 3, 4, 6 and 8 panels.
+- Up to 20 URL panels in one workspace, with a custom panel-count selector from 1 to 20.
+- Paste one URL to load that same website in every visible panel.
+- Responsive grid layouts that adapt to the selected panel count.
 - Independent address bars, reload buttons, focus mode and open-in-new-tab actions.
 - Open every configured website in its own browser tab, then close the MultiView dashboard while those tabs stay open.
-- Paste multiple URLs at once (one per line).
+- Paste multiple URLs at once (one per line) to populate different panels.
 - Multiple named workspaces, automatically saved in local browser storage.
 - Duplicate or delete workspaces without losing the original.
 - Save favourite websites to a quick-access shelf and launch them into the next available panel.
