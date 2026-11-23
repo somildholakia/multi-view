@@ -3,8 +3,8 @@ import { loadState, saveState } from "./core/storage.js";
 import { getMediaDescriptor } from "./core/url.js";
 import { savePlaybackPosition } from "./features/media/playback-store.js";
 import { createWorkspace, duplicateWorkspace, LAYOUTS } from "./features/workspaces/workspace-model.js";
-import { addUrls, changeLayout, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
-import { createViewCard, updateViewCard } from "./features/views/view-card.js";
+import { addUrls, changeLayout, clearAllViews, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
+import { createViewCard, disposeViewCard, updateViewCard } from "./features/views/view-card.js";
 import { RefreshController } from "./features/refresh/refresh-controller.js";
 import { downloadBackup, readBackup } from "./features/import-export/backup.js";
 import { createToastHost } from "./ui/toast.js";
@@ -25,8 +25,8 @@ const APP_MARKUP = `
         <button id="export-button" class="top-icon-button" title="Export workspaces" aria-label="Export workspaces"></button><button id="import-button" class="top-icon-button" title="Import workspaces" aria-label="Import workspaces"></button><input id="import-file" type="file" accept="application/json,.json" hidden/></div>
     </header>
     <section class="page-content">
-      <div class="hero-row"><div><div class="eyebrow"><span class="eyebrow-line"></span> YOUR BROWSER, MULTIPLIED</div><h1>One screen.<br/><span>Many perspectives.</span></h1><p class="hero-description">Bring your favourite websites into one workspace. Compare, monitor and move between them without juggling tabs.</p></div>
-        <div class="hero-art" aria-hidden="true"><div class="art-window art-window--back"><i></i><i></i><i></i><b></b><b></b></div><div class="art-window art-window--front"><i></i><i></i><i></i><div class="art-grid"><b></b><b></b><b></b><b></b></div></div><span class="art-spark art-spark--one">✳</span><span class="art-spark art-spark--two">✦</span></div></div>
+      <div class="hero-row"><div><div class="eyebrow"><span class="eyebrow-line"></span> YOUR BROWSER, MULTIPLIED</div><h1>More room.<br/><span>Less tab chaos.</span></h1><p class="hero-description">A bright, flexible desk for the websites and videos you need. Panels load as you reach them, so a 20-window workspace stays easier on your device.</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="art-window art-window--back"><i></i><i></i><i></i><b></b><b></b></div><div class="art-window art-window--front"><i></i><i></i><i></i><div class="art-grid"><b></b><b></b><b></b><b></b></div></div><div class="hero-art__count"><strong>20</strong><span>windows max</span></div><span class="art-spark art-spark--one">✳</span><span class="art-spark art-spark--two">✦</span></div></div>
       <div class="workspace-heading"><div class="workspace-name-group"><span class="section-kicker">CURRENT WORKSPACE</span><input id="workspace-name" class="workspace-name-input" maxlength="48" aria-label="Workspace name"/></div><div class="workspace-stats"><span id="active-count">0 active</span><span class="stat-divider"></span><span id="panel-count">4 panels</span><button id="duplicate-workspace" class="quiet-button workspace-action" type="button" title="Duplicate this workspace">Duplicate</button><button id="delete-workspace" class="quiet-button workspace-action workspace-action--danger" type="button" title="Delete this workspace">Delete</button></div></div>
       <section class="control-panel">
         <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>Window count</b><small>Choose anywhere from 1 to 20 panels</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
@@ -35,7 +35,7 @@ const APP_MARKUP = `
       <section class="all-windows-site"><div class="all-windows-site__copy"><span class="all-windows-site__icon">↗</span><div><b>Open the same website in every window</b><p>Paste one URL to load it in all <strong id="all-windows-total">4</strong> panels.</p></div></div><form id="all-windows-form" class="all-windows-site__form"><input id="all-windows-url" type="text" inputmode="url" placeholder="https://example.com" aria-label="Website URL for all windows"/><button class="all-windows-site__button" type="submit"><span>↗</span> Open in all windows</button></form></section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Clear all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -90,6 +90,15 @@ export class MultiViewApp {
       this.toast("Workspace deleted.","success");
     });
     $("#open-all").addEventListener("click",()=>this.openAllViews());
+    $("#clear-all-views").addEventListener("click",()=>{
+      const count=this.workspace.views.filter(view=>view.url).length;
+      if(!count)return this.toast("This workspace is already empty.");
+      if(!window.confirm(`Clear all ${count} loaded websites and videos, and reset this workspace to four blank windows?`))return;
+      const cleared=clearAllViews(this.workspace);
+      this.focusedViewId=null;
+      this.persistAndRender();
+      this.toast(`Cleared ${cleared} windows and released their page content.`,"success");
+    });
     $("#open-video-tabs").addEventListener("click",()=>this.openVideoTabs());
     $("#add-sites-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#bulk-urls");
@@ -187,7 +196,7 @@ export class MultiViewApp {
     });
     grid.replaceChildren(fragment);grid.classList.toggle("is-focused",Boolean(this.focusedViewId));
     const knownIds=new Set(this.workspace.views.map(view=>view.id));
-    for(const [id,card] of this.panelNodes){if(!knownIds.has(id)){card.remove();this.panelNodes.delete(id);}}
+    for(const [id,card] of this.panelNodes){if(!knownIds.has(id)){disposeViewCard(card);card.remove();this.panelNodes.delete(id);}}
   }
   renderBookmarks(){
     const mount=this.root.querySelector("#bookmark-list");
