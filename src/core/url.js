@@ -1,7 +1,7 @@
 export function normalizeUrl(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) throw new Error("Enter a website address first.");
-  const candidate = /^[a-zA-Z][a-zA-Z\\d+.-]*:\/\//.test(value) ? value : `https://${value}`;
+  const candidate = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(value) ? value : "https://" + value;
   let parsed;
   try { parsed = new URL(candidate); } catch { throw new Error("That doesn't look like a valid website address."); }
   if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Only HTTP and HTTPS website addresses are supported.");
@@ -9,7 +9,7 @@ export function normalizeUrl(rawValue) {
 }
 
 function youtubeDescriptor(url) {
-  const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const youtubeHosts = new Set(["youtube.com", "m.youtube.com", "music.youtube.com", "youtube-nocookie.com"]);
   let videoId = "";
   if (host === "youtu.be") {
@@ -28,7 +28,7 @@ function youtubeDescriptor(url) {
   }
 
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
-  const embed = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  const embed = new URL("https://www.youtube-nocookie.com/embed/" + videoId);
   embed.searchParams.set("playsinline", "1");
   embed.searchParams.set("rel", "0");
   const start = url.searchParams.get("start") || url.searchParams.get("t");
@@ -44,31 +44,31 @@ function youtubeDescriptor(url) {
 }
 
 function parseVideoTime(value) {
-  if (/^\\d+$/.test(String(value))) return Number(value);
-  const match = String(value).match(/^(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?$/i);
+  if (/^\d+$/.test(String(value))) return Number(value);
+  const match = String(value).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
   if (!match) return 0;
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
 }
 
 function vimeoDescriptor(url) {
-  const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (!["vimeo.com", "player.vimeo.com"].includes(host)) return null;
-  const match = url.pathname.match(/(?:video\\/)?(\\d{6,})/);
+  const match = url.pathname.match(/(?:video\/)?(\d{6,})/);
   if (!match) return null;
-  const embed = new URL(`https://player.vimeo.com/video/${match[1]}`);
+  const embed = new URL("https://player.vimeo.com/video/" + match[1]);
   const hash = url.searchParams.get("h");
   if (hash) embed.searchParams.set("h", hash);
   return { type: "vimeo", src: embed.href };
 }
 
 function dailymotionDescriptor(url) {
-  const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (!["dailymotion.com", "dai.ly"].includes(host)) return null;
   const match = host === "dai.ly"
-    ? url.pathname.match(/^\\/([A-Za-z0-9]+)/)
-    : url.pathname.match(/^\\/video\\/([A-Za-z0-9]+)/);
+    ? url.pathname.match(/^\/([A-Za-z0-9]+)/)
+    : url.pathname.match(/^\/video\/([A-Za-z0-9]+)/);
   if (!match) return null;
-  return { type: "dailymotion", src: `https://www.dailymotion.com/embed/video/${match[1]}` };
+  return { type: "dailymotion", src: "https://www.dailymotion.com/embed/video/" + match[1] };
 }
 
 const DIRECT_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "ogg", "m4v", "mov", "m3u8"]);
@@ -87,9 +87,9 @@ export function getMediaDescriptor(value) {
 }
 
 export function getDomain(value) {
-  try { return new URL(value).hostname.replace(/^www\\./, ""); } catch { return "New website"; }
+  try { return new URL(value).hostname.replace(/^www\./, ""); } catch { return "New website"; }
 }
 export function getFaviconUrl(value) {
-  try { return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(new URL(value).origin)}&sz=64`; }
+  try { return "https://www.google.com/s2/favicons?domain_url=" + encodeURIComponent(new URL(value).origin) + "&sz=64"; }
   catch { return ""; }
 }
