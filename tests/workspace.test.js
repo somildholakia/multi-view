@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addUrls, changeLayout } from "../src/features/views/view-manager.js";
+import { addBookmark, removeBookmark } from "../src/features/bookmarks/bookmark-manager.js";
+import { addUrls, changeLayout, reorderViews } from "../src/features/views/view-manager.js";
 import {
   createWorkspace,
+  duplicateWorkspace,
   normalizeAppState
 } from "../src/features/workspaces/workspace-model.js";
 
@@ -20,7 +22,7 @@ test("adding five sites expands a four-panel workspace to six", () => {
 
 test("a workspace cannot contain more than eight websites", () => {
   const workspace = createWorkspace();
-  const urls = Array.from({ length: 9 }, (_, index) => `site${index + 1}.example`);
+  const urls = Array.from({ length: 9 }, (_, index) => "site" + (index + 1) + ".example");
 
   assert.throws(() => addUrls(workspace, urls), /up to 8 websites/i);
 });
@@ -35,6 +37,51 @@ test("changing layouts preserves websites in panels that become hidden", () => {
 
   changeLayout(workspace, 4);
   assert.equal(workspace.views[1].url, "https://second.example/");
+});
+
+test("panel reordering moves the selected website without losing it", () => {
+  const workspace = createWorkspace();
+  addUrls(workspace, ["first.example", "second.example", "third.example"]);
+  const first = workspace.views[0].id;
+  const third = workspace.views[2].id;
+
+  assert.equal(reorderViews(workspace, third, first), true);
+  assert.equal(workspace.views[0].url, "https://third.example/");
+  assert.equal(workspace.views[2].url, "https://second.example/");
+});
+
+test("workspace duplication copies URLs but generates independent panel IDs", () => {
+  const workspace = createWorkspace("Research");
+  addUrls(workspace, ["example.com", "openai.com"]);
+  const copy = duplicateWorkspace(workspace);
+
+  assert.equal(copy.name, "Research copy");
+  assert.equal(copy.layout, workspace.layout);
+  assert.equal(copy.views[0].url, workspace.views[0].url);
+  assert.notEqual(copy.views[0].id, workspace.views[0].id);
+});
+
+test("bookmarks can be saved, deduplicated, and removed", () => {
+  const state = { bookmarks: [] };
+  const view = { url: "https://www.example.com/path" };
+
+  const created = addBookmark(state, view);
+  const duplicate = addBookmark(state, view);
+
+  assert.equal(created.created, true);
+  assert.equal(duplicate.created, false);
+  assert.equal(state.bookmarks.length, 1);
+  assert.equal(removeBookmark(state, created.bookmark.id), true);
+  assert.equal(state.bookmarks.length, 0);
+});
+
+test("invalid imported bookmarks are discarded", () => {
+  const state = normalizeAppState({
+    workspaces: [{ id: "workspace-1", views: [] }],
+    bookmarks: [{ id: "broken", title: "Invalid", url: "javascript:alert(1)" }]
+  });
+
+  assert.equal(state.bookmarks.length, 0);
 });
 
 test("invalid saved settings are normalized to safe defaults", () => {
