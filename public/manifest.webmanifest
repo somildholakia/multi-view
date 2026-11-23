@@ -1,0 +1,6 @@
+{
+  "name":"MultiView — Multi Website Workspace","short_name":"MultiView",
+  "description":"Open and organise multiple websites in one focused workspace.",
+  "start_url":"./","scope":"./","display":"standalone","background_color":"#10131d","theme_color":"#10131d","orientation":"any",
+  "icons":[{"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
