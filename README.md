@@ -25,6 +25,7 @@ A modular, installable multi-website workspace inspired by split-screen browser 
 - Drag panels to reorder their position.
 - Per-workspace auto-refresh (15 seconds, 30 seconds, 1 minute or 5 minutes).
 - Per-panel free country proxy launch: opens the selected provider's proxy page in a separate browser tab and copies that panel's URL for pasting into the proxy.
+- Background resilience: saves workspace state on page hide/freeze and runs one catch-up refresh when Chrome makes the page visible again.
 - JSON workspace backup and restore.
 - Installable PWA shell with a basic offline app-shell cache.
 - No backend, account system, database or paid API required for this first version.
@@ -88,6 +89,8 @@ Each feature is intentionally isolated so bookmarks, per-panel settings, history
 MultiView uses normal browser iframes, not a native browser engine. A website can block iframe embedding using its `X-Frame-Options` or Content Security Policy `frame-ancestors` response header. Those sites cannot be forced to render by this frontend; use **Open in a new tab** for them.
 
 The optional free country-proxy launcher is an external handoff, not per-panel VPN routing inside the embedded MultiView iframes. It currently opens Shifter's free web-proxy page in a separate tab and copies the selected panel URL for manual pasting. The provider chooses an exit IP in the selected country, but separate tabs are not guaranteed to receive unique IP addresses or distinct cities. Its free proxy is designed for lightweight browsing; video streaming and personal-account logins may fail or be unsuitable. The MultiView auto-close timer attempts to close the launched tab after the selected duration, but Android may throttle the dashboard while it is in the background, so the timer can be delayed. Do not rely on it as a hard security timeout.
+
+Background resilience does not keep embedded websites executing while Chrome is in the background. Chrome and Android can freeze or discard hidden pages; MultiView saves its own workspace state and checks for one overdue auto-refresh when the page becomes visible again. On a Samsung Galaxy, adding Chrome to Settings > Battery > Background usage limits > Never sleeping apps may reduce Samsung's app sleep, but it cannot disable Chrome's own background-tab lifecycle controls or guarantee continuous playback.
 
 YouTube watch, Shorts, live and playlist URLs are converted to YouTube embed-player URLs; Vimeo and Dailymotion video links are also converted to their player URLs. Direct MP4, WebM and Ogg video files use the browser video player. The video owner or provider can still disable embedding, restrict a video by region or age, require authentication, or reject playback. Autoplay starts muted where the player and browser permit it; unmute manually for sound. HLS (.m3u8) playback depends on the browser, and some formats may not be supported on every device. Direct video progress is saved locally in IndexedDB (with a local-storage fallback); embedded YouTube, Vimeo and Dailymotion progress is controlled by their own players.
 
