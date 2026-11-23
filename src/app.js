@@ -92,7 +92,8 @@ export class MultiViewApp {
     $("#open-all").addEventListener("click",()=>this.openAllViews());
     $("#clear-all-views").addEventListener("click",()=>{
       const count=this.workspace.views.filter(view=>view.url).length;
-      if(!count)return this.toast("This workspace is already empty.");
+      const hasExtraPanels=this.workspace.layout>4||this.workspace.views.length>4;
+      if(!count&&!hasExtraPanels)return this.toast("This workspace is already empty.");
       if(!window.confirm(`Clear all ${count} loaded websites and videos, and reset this workspace to four blank windows?`))return;
       const cleared=clearAllViews(this.workspace);
       this.focusedViewId=null;
@@ -194,9 +195,26 @@ export class MultiViewApp {
       updateViewCard(card,view,index,this.focusedViewId===view.id,this.state.bookmarks.some(item=>item.url===view.url),this.workspace.autoPlayVideos!==false);
       card.hidden=Boolean(this.focusedViewId&&this.focusedViewId!==view.id);fragment.append(card);
     });
-    grid.replaceChildren(fragment);grid.classList.toggle("is-focused",Boolean(this.focusedViewId));
-    const knownIds=new Set(this.workspace.views.map(view=>view.id));
-    for(const [id,card] of this.panelNodes){if(!knownIds.has(id)){disposeViewCard(card);card.remove();this.panelNodes.delete(id);}}
+    const visibleViews=this.workspace.views.slice(0,this.workspace.layout);
+    const visibleIds=new Set();
+    visibleViews.forEach((view,index)=>{
+      visibleIds.add(view.id);
+      let card=this.panelNodes.get(view.id);
+      if(!card){card=createViewCard(view,index,handlers);this.panelNodes.set(view.id,card);}
+      updateViewCard(card,view,index,this.focusedViewId===view.id,this.state.bookmarks.some(item=>item.url===view.url),this.workspace.autoPlayVideos!==false);
+      card.hidden=Boolean(this.focusedViewId&&this.focusedViewId!==view.id);
+      const current=grid.children[index]||null;
+      if(current!==card)grid.insertBefore(card,current);
+    });
+    while(grid.children.length>visibleViews.length)grid.lastElementChild.remove();
+    grid.classList.toggle("is-focused",Boolean(this.focusedViewId));
+    for(const [id,card] of this.panelNodes){
+      if(!visibleIds.has(id)){
+        disposeViewCard(card);
+        card.remove();
+        this.panelNodes.delete(id);
+      }
+    }
   }
   renderBookmarks(){
     const mount=this.root.querySelector("#bookmark-list");
