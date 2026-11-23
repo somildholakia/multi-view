@@ -15,6 +15,16 @@ export function clearView(workspace,viewId){
   const view=workspace.views.find(item=>item.id===viewId);
   if(view)view.url="";
 }
+export function clearAllViews(workspace){
+  if(!workspace)return 0;
+  const cleared=workspace.views.filter(view=>view.url).length;
+  const firstFour=workspace.views.slice(0,4);
+  firstFour.forEach(view=>{view.url="";});
+  while(firstFour.length<4)firstFour.push(createView());
+  workspace.views=firstFour;
+  workspace.layout=4;
+  return cleared;
+}
 export function addUrls(workspace,rawUrls){
   const urls=rawUrls.map(normalizeUrl);
   const occupied=workspace.views.filter(view=>view.url).length;
