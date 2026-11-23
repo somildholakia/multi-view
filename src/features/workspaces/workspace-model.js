@@ -1,4 +1,5 @@
 import { createId } from "../../core/ids.js";
+import { normalizeUrl } from "../../core/url.js";
 export const LAYOUTS=[1,2,3,4,6,8];
 export function createView(url=""){return{id:createId("view"),url};}
 export function createWorkspace(name="My workspace"){
@@ -29,12 +30,16 @@ export function normalizeAppState(input){
   const workspaces=source.length?source.map(normalizeWorkspace):[createWorkspace()];
   const wantedId=input?.activeWorkspaceId;
   const activeWorkspaceId=workspaces.some(workspace=>workspace.id===wantedId)?wantedId:workspaces[0].id;
-  const bookmarks=Array.isArray(input?.bookmarks)?input.bookmarks.slice(0,100).map(item=>({
-    id:typeof item?.id==="string"?item.id:createId("bookmark"),
-    title:typeof item?.title==="string"&&item.title.trim()?item.title.trim().slice(0,48):"Saved website",
-    url:typeof item?.url==="string"?item.url:"",
-    createdAt:typeof item?.createdAt==="string"?item.createdAt:""
-  })).filter(item=>item.url):[];
+  const bookmarks=(Array.isArray(input?.bookmarks)?input.bookmarks.slice(0,100):[]).map(item=>{
+    try{
+      return{
+        id:typeof item?.id==="string"?item.id:createId("bookmark"),
+        title:typeof item?.title==="string"&&item.title.trim()?item.title.trim().slice(0,48):"Saved website",
+        url:normalizeUrl(item?.url),
+        createdAt:typeof item?.createdAt==="string"?item.createdAt:""
+      };
+    }catch{return null;}
+  }).filter(Boolean);
   return{version:2,activeWorkspaceId,workspaces,bookmarks};
 }
 export function fitLayout(workspace,minimumCount){
