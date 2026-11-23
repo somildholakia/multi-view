@@ -8,7 +8,7 @@ export function normalizeUrl(rawValue) {
   return parsed.href;
 }
 
-function youtubeDescriptor(url) {
+function youtubeDescriptor(url, autoPlay) {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const youtubeHosts = new Set(["youtube.com", "m.youtube.com", "music.youtube.com", "youtube-nocookie.com"]);
   let videoId = "";
@@ -21,6 +21,7 @@ function youtubeDescriptor(url) {
     if (!videoId && segments[0] === "playlist" && url.searchParams.get("list")) {
       const playlist = new URL("https://www.youtube-nocookie.com/embed/videoseries");
       playlist.searchParams.set("list", url.searchParams.get("list"));
+      if (autoPlay) { playlist.searchParams.set("autoplay", "1"); playlist.searchParams.set("mute", "1"); }
       return { type: "youtube-playlist", src: playlist.href };
     }
   } else {
@@ -31,6 +32,7 @@ function youtubeDescriptor(url) {
   const embed = new URL("https://www.youtube-nocookie.com/embed/" + videoId);
   embed.searchParams.set("playsinline", "1");
   embed.searchParams.set("rel", "0");
+  if (autoPlay) { embed.searchParams.set("autoplay", "1"); embed.searchParams.set("mute", "1"); }
   const start = url.searchParams.get("start") || url.searchParams.get("t");
   if (start) {
     const seconds = parseVideoTime(start);
@@ -50,7 +52,7 @@ function parseVideoTime(value) {
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
 }
 
-function vimeoDescriptor(url) {
+function vimeoDescriptor(url, autoPlay) {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (!["vimeo.com", "player.vimeo.com"].includes(host)) return null;
   const match = url.pathname.match(/(?:video\/)?(\d{6,})/);
@@ -58,25 +60,28 @@ function vimeoDescriptor(url) {
   const embed = new URL("https://player.vimeo.com/video/" + match[1]);
   const hash = url.searchParams.get("h");
   if (hash) embed.searchParams.set("h", hash);
+  if (autoPlay) { embed.searchParams.set("autoplay", "1"); embed.searchParams.set("muted", "1"); }
   return { type: "vimeo", src: embed.href };
 }
 
-function dailymotionDescriptor(url) {
+function dailymotionDescriptor(url, autoPlay) {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (!["dailymotion.com", "dai.ly"].includes(host)) return null;
   const match = host === "dai.ly"
     ? url.pathname.match(/^\/([A-Za-z0-9]+)/)
     : url.pathname.match(/^\/video\/([A-Za-z0-9]+)/);
   if (!match) return null;
-  return { type: "dailymotion", src: "https://www.dailymotion.com/embed/video/" + match[1] };
+  const embed = new URL("https://www.dailymotion.com/embed/video/" + match[1]);
+  if (autoPlay) { embed.searchParams.set("autoplay", "1"); embed.searchParams.set("mute", "1"); }
+  return { type: "dailymotion", src: embed.href };
 }
 
 const DIRECT_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "ogg", "m4v", "mov", "m3u8"]);
 
-export function getMediaDescriptor(value) {
+export function getMediaDescriptor(value, { autoPlay = false } = {}) {
   try {
     const url = new URL(value);
-    const hosted = youtubeDescriptor(url) || vimeoDescriptor(url) || dailymotionDescriptor(url);
+    const hosted = youtubeDescriptor(url, autoPlay) || vimeoDescriptor(url, autoPlay) || dailymotionDescriptor(url, autoPlay);
     if (hosted) return hosted;
     const extension = url.pathname.split(".").pop()?.toLowerCase();
     if (DIRECT_VIDEO_EXTENSIONS.has(extension)) return { type: "video", src: url.href };
