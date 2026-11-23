@@ -24,3 +24,12 @@ export function changeLayout(workspace,layout){
   workspace.layout=next;
   while(workspace.views.length<next)workspace.views.push(createView());
 }
+export function reorderViews(workspace,sourceId,targetId){
+  if(!workspace||sourceId===targetId)return false;
+  const from=workspace.views.findIndex(view=>view.id===sourceId);
+  const to=workspace.views.findIndex(view=>view.id===targetId);
+  if(from<0||to<0)return false;
+  const [moved]=workspace.views.splice(from,1);
+  workspace.views.splice(to,0,moved);
+  return true;
+}
