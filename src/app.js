@@ -35,7 +35,7 @@ const APP_MARKUP = `
       <section class="all-windows-site"><div class="all-windows-site__copy"><span class="all-windows-site__icon">↗</span><div><b>Open the same website in every window</b><p>Paste one URL to load it in all <strong id="all-windows-total">4</strong> panels.</p></div></div><form id="all-windows-form" class="all-windows-site__form"><input id="all-windows-url" type="text" inputmode="url" placeholder="https://example.com" aria-label="Website URL for all windows"/><button class="all-windows-site__button" type="submit"><span>↗</span> Open in all windows</button></form></section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Clear all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -92,13 +92,13 @@ export class MultiViewApp {
     $("#open-all").addEventListener("click",()=>this.openAllViews());
     $("#clear-all-views").addEventListener("click",()=>{
       const count=this.workspace.views.filter(view=>view.url).length;
-      const hasExtraPanels=this.workspace.layout>4||this.workspace.views.length>4;
+      const hasExtraPanels=this.workspace.layout>1||this.workspace.views.length>1;
       if(!count&&!hasExtraPanels)return this.toast("This workspace is already empty.");
-      if(!window.confirm(`Clear all ${count} loaded websites and videos, and reset this workspace to four blank windows?`))return;
+      if(!window.confirm(`Clear all ${count} loaded websites and videos, and reset this workspace to one blank window?`))return;
       const cleared=clearAllViews(this.workspace);
       this.focusedViewId=null;
       this.persistAndRender();
-      this.toast(`Cleared ${cleared} windows and released their page content.`,"success");
+      this.toast(`Closed all windows and released their page content; one blank panel remains.`,"success");
     });
     $("#open-video-tabs").addEventListener("click",()=>this.openVideoTabs());
     $("#add-sites-form").addEventListener("submit",event=>{
