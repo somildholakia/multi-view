@@ -20,7 +20,7 @@ export function addUrls(workspace,rawUrls){
   const occupied=workspace.views.filter(view=>view.url).length;
   const required=occupied+urls.length;
   if(required>MAX_PANELS)throw new Error(`A workspace can hold up to ${MAX_PANELS} windows.`);
-  if(urls.length>workspace.views.filter(view=>!view.url).length)fitLayout(workspace,required);
+  fitLayout(workspace,required);
   const available=workspace.views.filter(view=>!view.url);
   urls.forEach((url,index)=>{available[index].url=url;});
   return urls.length;
