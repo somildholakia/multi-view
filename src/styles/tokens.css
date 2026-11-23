@@ -1,8 +1,20 @@
 :root {
- color-scheme:dark;
- --bg:#10131d; --bg-elevated:#151a27; --panel:#191f2d; --panel-soft:#1c2433;
- --panel-border:rgba(177,190,220,.11); --text:#f1f4fc; --muted:#9aa5bb; --subtle:#68758d;
- --accent:#987cff; --accent-strong:#7857ff; --mint:#63e6c0; --coral:#ff967e;
- --shadow:0 20px 60px rgba(0,0,0,.22);
- font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color-scheme: light;
+  --bg: #f6f0e5;
+  --bg-elevated: #fffdf8;
+  --panel: #ffffff;
+  --panel-soft: #f1ecff;
+  --panel-border: #24213d;
+  --text: #24213d;
+  --muted: #655f77;
+  --subtle: #817b90;
+  --accent: #6246dc;
+  --accent-strong: #4931bd;
+  --mint: #167b61;
+  --coral: #ef654b;
+  --yellow: #ffd24f;
+  --pink: #efb4d1;
+  --blue: #83c8ee;
+  --shadow: 6px 7px 0 #e5dac8;
+  font-family: "Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }
