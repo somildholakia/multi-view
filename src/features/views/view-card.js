@@ -16,6 +16,7 @@ export function createViewCard(view,index,handlers) {
   const actions=el("div",{className:"view-actions"},[
     action("refresh","Reload this page",()=>handlers.reload(view.id)),
     action("external","Open in a new tab",()=>handlers.open(view.id)),
+    action("bookmark","Save to quick access",()=>handlers.bookmark(view.id)),
     action("expand","Focus this view",()=>handlers.focus(view.id)),
     action("trash","Clear this view",()=>handlers.clear(view.id),true)
   ]);
@@ -37,19 +38,33 @@ export function createViewCard(view,index,handlers) {
     referrerpolicy:"strict-origin-when-cross-origin"
   }});
   stage.append(empty,frame);
+  card.draggable=true;
+  card.addEventListener("dragstart",event=>{
+    card.classList.add("is-dragging");
+    if(event.dataTransfer){event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",view.id);}
+  });
+  card.addEventListener("dragover",event=>{event.preventDefault();card.classList.add("is-drag-target");});
+  card.addEventListener("dragleave",()=>card.classList.remove("is-drag-target"));
+  card.addEventListener("drop",event=>{
+    event.preventDefault();
+    card.classList.remove("is-drag-target");
+    const sourceId=event.dataTransfer?.getData("text/plain");
+    if(sourceId)handlers.reorder(sourceId,view.id);
+  });
+  card.addEventListener("dragend",()=>card.classList.remove("is-dragging","is-drag-target"));
   const foot=el("div",{className:"view-card__foot"},[
     el("span",{className:"live-dot"}),
     el("span",{className:"view-foot-label",text:"Ready when you are"}),
     el("span",{className:"view-foot-hint",text:"Embedding depends on the website"})
   ]);
   card.append(top,form,stage,foot);
-  card._parts={identity,address,empty,frame,foot,focusButton:actions.children[2]};
+  card._parts={identity,address,empty,frame,foot,bookmarkButton:actions.children[2],focusButton:actions.children[3]};
   updateViewCard(card,view,index,false);
   return card;
 }
 
-export function updateViewCard(card,view,index,focused) {
-  const {identity,address,empty,frame,foot,focusButton}=card._parts;
+export function updateViewCard(card,view,index,focused,isBookmarked=false) {
+  const {identity,address,empty,frame,foot,focusButton,bookmarkButton}=card._parts;
   const title=identity.querySelector(".site-title");
   const favicon=identity.querySelector(".site-favicon");
   title.textContent=view.url?getDomain(view.url):"New website";
@@ -63,6 +78,9 @@ export function updateViewCard(card,view,index,focused) {
   frame.hidden=!view.url;
   card.classList.toggle("is-focused",focused);
   focusButton.title=focused?"Exit focused view":"Focus this view";
+  bookmarkButton.classList.toggle("is-saved",isBookmarked);
+  bookmarkButton.title=isBookmarked?"Remove from quick access":"Save to quick access";
+  bookmarkButton.setAttribute("aria-pressed",String(isBookmarked));
   foot.querySelector(".view-foot-label").textContent=view.url?"Website opened in panel":"Ready when you are";
   foot.querySelector(".view-foot-hint").textContent=view.url?"Some sites may block embedded browsing":"Your URL is saved on this device";
   card.querySelector(".view-number").textContent=String(index+1).padStart(2,"0");
