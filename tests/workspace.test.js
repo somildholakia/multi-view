@@ -49,15 +49,15 @@ test("adding another website after reducing the visible count expands to show it
   assert.equal(workspace.views[3].url, "https://fourth.example/");
 });
 
-test("clear all windows removes panel URLs and resets to four blank panels", () => {
+test("close all windows removes panel URLs and resets to one blank panel", () => {
   const workspace = createWorkspace();
   changeLayout(workspace, 20);
   addUrls(workspace, Array.from({ length: 20 }, (_, index) => "site" + (index + 1) + ".example"));
 
   assert.equal(clearAllViews(workspace), 20);
-  assert.equal(workspace.layout, 4);
-  assert.equal(workspace.views.length, 4);
-  assert.equal(workspace.views.every(view => view.url === ""), true);
+  assert.equal(workspace.layout, 1);
+  assert.equal(workspace.views.length, 1);
+  assert.equal(workspace.views[0].url, "");
 });
 
 test("changing layouts preserves websites in panels that become hidden", () => {
