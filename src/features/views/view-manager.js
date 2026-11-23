@@ -1,8 +1,15 @@
-import { createView, fitLayout, LAYOUTS } from "../workspaces/workspace-model.js";
+import { createView, fitLayout, LAYOUTS, MAX_PANELS } from "../workspaces/workspace-model.js";
 import { normalizeUrl } from "../../core/url.js";
 export function setViewUrl(workspace,viewId,rawUrl){
   const view=workspace.views.find(item=>item.id===viewId);
   if(view)view.url=rawUrl.trim()?normalizeUrl(rawUrl):"";
+}
+export function setAllViewsUrl(workspace,rawUrl){
+  const url=normalizeUrl(rawUrl);
+  const count=Math.min(MAX_PANELS,Math.max(1,Number(workspace.layout)||4));
+  while(workspace.views.length<count)workspace.views.push(createView());
+  workspace.views.slice(0,count).forEach(view=>{view.url=url;});
+  return count;
 }
 export function clearView(workspace,viewId){
   const view=workspace.views.find(item=>item.id===viewId);
@@ -12,7 +19,7 @@ export function addUrls(workspace,rawUrls){
   const urls=rawUrls.map(normalizeUrl);
   const occupied=workspace.views.filter(view=>view.url).length;
   const required=occupied+urls.length;
-  if(required>8)throw new Error("A workspace can hold up to 8 websites.");
+  if(required>MAX_PANELS)throw new Error(`A workspace can hold up to ${MAX_PANELS} windows.`);
   if(urls.length>workspace.views.filter(view=>!view.url).length)fitLayout(workspace,required);
   const available=workspace.views.filter(view=>!view.url);
   urls.forEach((url,index)=>{available[index].url=url;});
