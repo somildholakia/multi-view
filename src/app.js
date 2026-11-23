@@ -33,7 +33,23 @@ const APP_MARKUP = `
       <div class="workspace-heading"><div class="workspace-name-group"><span class="section-kicker">CURRENT WORKSPACE</span><input id="workspace-name" class="workspace-name-input" maxlength="48" aria-label="Workspace name"/></div><div class="workspace-stats"><span id="active-count">0 active</span><span class="stat-divider"></span><span id="panel-count">4 panels</span><button id="duplicate-workspace" class="quiet-button workspace-action" type="button" title="Duplicate this workspace">Duplicate</button><button id="delete-workspace" class="quiet-button workspace-action workspace-action--danger" type="button" title="Delete this workspace">Delete</button></div></div>
       <section class="control-panel">
         <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>Window count</b><small>Choose anywhere from 1 to 20 panels</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
-        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox" checked/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Refreshes while this app is open</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
+        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox" checked/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Catches up once when you return from the background</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
+      </section>
+      <section class="background-resilience-panel" aria-labelledby="background-resilience-title">
+        <div class="background-resilience-panel__top">
+          <span class="background-resilience-panel__icon">⏱</span>
+          <div>
+            <span class="section-kicker">ANDROID BACKGROUND SUPPORT</span>
+            <b id="background-resilience-title">Background resilience</b>
+            <p>MultiView saves your workspace before Chrome suspends this page and checks overdue auto-refresh when you return.</p>
+          </div>
+          <span id="background-resilience-status" class="background-resilience-status">Autosave active</span>
+        </div>
+        <div class="background-resilience-panel__note">
+          <b>For better background retention on your Galaxy:</b>
+          Settings → Battery → Background usage limits → Never sleeping apps → Add Chrome.
+          This helps prevent Samsung's app sleep, but Chrome can still pause individual website tabs. Continuous background execution is not guaranteed.
+        </div>
       </section>
       <section class="all-windows-site"><div class="all-windows-site__copy"><span class="all-windows-site__icon">↗</span><div><b>Open the same website in every window</b><p>Paste one URL to load it in all <strong id="all-windows-total">4</strong> panels.</p></div></div><form id="all-windows-form" class="all-windows-site__form"><input id="all-windows-url" type="text" inputmode="url" placeholder="https://example.com" aria-label="Website URL for all windows"/><button class="all-windows-site__button" type="submit"><span>↗</span> Open in all windows</button></form></section>
       <section class="free-proxy-panel">
@@ -66,13 +82,18 @@ export class MultiViewApp {
     this.root=root;this.state=loadState();this.panelNodes=new Map();this.focusedViewId=null;
     this.installPrompt=null;this.refreshPaused=false;this.refreshController=new RefreshController(()=>this.reloadAll(false));this.toast=null;
     this.proxySettings=this.loadProxySettings();this.proxySessions=new Map();this.proxyTicker=null;
+    this.lastBackgroundReturnAt=0;this.lastBackgroundAwayMs=0;
   }
   start(){
     this.root.innerHTML=APP_MARKUP;this.toast=createToastHost(this.root.querySelector("#toast-mount"));
     this.bindStaticEvents();this.render();
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&this.focusedViewId){this.focusedViewId=null;this.renderViews();}});
-    document.addEventListener("visibilitychange",()=>this.updateProxySessions());
-    window.addEventListener("focus",()=>this.updateProxySessions());
+    document.addEventListener("visibilitychange",()=>this.handleVisibilityChange());
+    document.addEventListener("freeze",()=>this.saveForBackground());
+    document.addEventListener("resume",()=>this.handleForegroundReturn());
+    window.addEventListener("pagehide",()=>this.saveForBackground());
+    window.addEventListener("pageshow",()=>this.handleForegroundReturn());
+    window.addEventListener("focus",()=>this.handleForegroundReturn());
   }
   get workspace(){return this.state.workspaces.find(item=>item.id===this.state.activeWorkspaceId)||this.state.workspaces[0];}
   setInstallPrompt(prompt){this.installPrompt=prompt;const button=this.root.querySelector("#install-button");if(button)button.hidden=!prompt;}
@@ -168,7 +189,7 @@ export class MultiViewApp {
     });
   }
   persistAndRender(){if(!saveState(this.state))this.toast("Browser storage is full. Export a backup before continuing.","error");this.render();}
-  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBackgroundStatus();this.renderBookmarks();this.renderViews();this.configureRefresh();}
   renderWorkspaces(){
     const list=this.root.querySelector("#workspace-list");list.replaceChildren();
     this.state.workspaces.forEach(workspace=>{
@@ -208,6 +229,46 @@ export class MultiViewApp {
     this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh all"}));
   }
   configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused);}
+  saveForBackground(){
+    // Persist workspace data at the last reliably observable point before
+    // Chrome hides, freezes, navigates away from, or discards this page.
+    if(!saveState(this.state))console.warn("MultiView could not save before background suspension.");
+    try{sessionStorage.setItem("multi-view.last-background-at",String(Date.now()));}catch{}
+  }
+  handleVisibilityChange(){
+    if(document.visibilityState==="hidden"){
+      this.saveForBackground();
+      this.updateProxySessions();
+      return;
+    }
+    this.handleForegroundReturn();
+  }
+  handleForegroundReturn(){
+    if(document.visibilityState!=="visible")return;
+    let previous=0;
+    try{
+      previous=Number(sessionStorage.getItem("multi-view.last-background-at")||0);
+      sessionStorage.removeItem("multi-view.last-background-at");
+    }catch{}
+    this.lastBackgroundAwayMs=previous?Math.max(0,Date.now()-previous):0;
+    this.lastBackgroundReturnAt=previous?Date.now():0;
+    const refreshed=this.refreshController.resume();
+    this.updateProxySessions();
+    this.renderBackgroundStatus(refreshed);
+  }
+  renderBackgroundStatus(refreshed=false){
+    const status=this.root.querySelector("#background-resilience-status");
+    if(!status)return;
+    if(this.lastBackgroundAwayMs>=5000){
+      const seconds=Math.round(this.lastBackgroundAwayMs/1000);
+      const away=seconds>=3600?`${Math.floor(seconds/3600)}h ${Math.floor((seconds%3600)/60)}m`:seconds>=60?`${Math.floor(seconds/60)}m ${seconds%60}s`:`${seconds}s`;
+      status.textContent=refreshed?`Resumed · refreshed after ${away}`:`Resumed after ${away}`;
+      status.classList.add("is-resumed");
+    }else{
+      status.textContent=refreshed?"Overdue refresh completed":"Autosave active";
+      status.classList.toggle("is-resumed",refreshed);
+    }
+  }
   loadProxySettings(){
     try{return normalizeProxySettings(JSON.parse(localStorage.getItem(PROXY_SETTINGS_KEY)||"{}"));}
     catch{return normalizeProxySettings();}
