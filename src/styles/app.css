@@ -462,3 +462,47 @@
     width: 100%;
   }
 }
+
+
+/* Video playback preferences */
+.autoplay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 210px;
+  color: #d9dff0;
+  cursor: pointer;
+}
+
+.autoplay-toggle input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  accent-color: #9b81ff;
+}
+
+.autoplay-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.autoplay-toggle b {
+  font-size: 10px;
+}
+
+.autoplay-toggle small {
+  color: #7e8ba4;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.view-actions .icon-button[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 850px) {
+  .autoplay-toggle {
+    width: 100%;
+  }
+}
