@@ -15,7 +15,7 @@ const APP_MARKUP = `
     <div class="sidebar-section"><div class="sidebar-heading"><span>Workspaces</span><button id="new-workspace" class="sidebar-add" aria-label="Create workspace" title="Create workspace">+</button></div><div id="workspace-list" class="workspace-list"></div></div>
     <div class="sidebar-spacer"></div>
     <div class="sidebar-card"><div class="sidebar-card__icon"><span class="pulse"></span></div><div><b>Saved on this device</b><p>Your workspace stays in this browser. No account required.</p></div></div>
-    <div class="sidebar-bottom"><span class="status-led"></span><span>Local mode</span><span class="sidebar-version">v0.2</span></div>
+    <div class="sidebar-bottom"><span class="status-led"></span><span>Local mode</span><span class="sidebar-version">v0.3</span></div>
   </aside>
   <main class="main-area">
     <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-separator">/</span><strong id="breadcrumb-name">My workspace</strong></div>
@@ -178,7 +178,7 @@ export class MultiViewApp {
         el("button",{type:"button",className:"bookmark-chip__open",title:`Open ${bookmark.title} in a panel`,on:{click:()=>this.openBookmark(bookmark)}},[
           icon("bookmark"),
           el("span",{text:bookmark.title}),
-          el("small",{text:new URL(bookmark.url).hostname.replace(/^www\\./,"")})
+          el("small",{text:new URL(bookmark.url).hostname.replace(/^www[.]/,"")})
         ]),
         el("button",{type:"button",className:"bookmark-chip__remove",title:`Remove ${bookmark.title} from quick access`,attrs:{"aria-label":`Remove ${bookmark.title}`},on:{click:()=>{removeBookmark(this.state,bookmark.id);this.persistAndRender();this.toast("Bookmark removed.");}}},[icon("trash")])
       ]);
