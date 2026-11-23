@@ -1,5 +1,6 @@
 import { el, icon } from "./core/dom.js";
 import { loadState, saveState } from "./core/storage.js";
+import { getMediaDescriptor } from "./core/url.js";
 import { createWorkspace, duplicateWorkspace, LAYOUTS } from "./features/workspaces/workspace-model.js";
 import { addUrls, changeLayout, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
 import { createViewCard, updateViewCard } from "./features/views/view-card.js";
@@ -225,9 +226,16 @@ export class MultiViewApp {
     }catch(error){this.toast(error.message,"error");}
   }
   reloadView(id){
-    const view=this.workspace.views.find(item=>item.id===id);const frame=this.panelNodes.get(id)?._parts?.frame;
-    if(!view?.url||!frame)return this.toast("Add a website to this panel first.");
-    frame.src=view.url;this.toast(`Reloading ${new URL(view.url).hostname}.`);
+    const view=this.workspace.views.find(item=>item.id===id);
+    const parts=this.panelNodes.get(id)?._parts;
+    if(!view?.url||!parts)return this.toast("Add a website or video to this panel first.");
+    const media=getMediaDescriptor(view.url);
+    if(media.type==="video"&&parts.video){
+      parts.video.pause();parts.video.src=media.src;parts.video.load();
+    }else if(parts.frame){
+      parts.frame.src=media.src;
+    }
+    this.toast(`Reloading ${new URL(view.url).hostname}.`);
   }
   openAllViews(){
     const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
@@ -237,9 +245,17 @@ export class MultiViewApp {
   }
   reloadAll(showToast=true){
     let count=0;this.workspace.views.slice(0,this.workspace.layout).forEach(view=>{
-      if(!view.url)return;const frame=this.panelNodes.get(view.id)?._parts?.frame;if(frame){frame.src=view.url;count++;}
+      if(!view.url)return;
+      const parts=this.panelNodes.get(view.id)?._parts;
+      if(!parts)return;
+      const media=getMediaDescriptor(view.url);
+      if(media.type==="video"&&parts.video){
+        parts.video.pause();parts.video.src=media.src;parts.video.load();count++;
+      }else if(parts.frame){
+        parts.frame.src=media.src;count++;
+      }
     });
-    if(showToast)this.toast(count?`Refreshing ${count} website${count===1?"":"s"}.`:"Add a website before refreshing.");
+    if(showToast)this.toast(count?`Refreshing ${count} panel${count===1?"":"s"}.`:"Add a website or video before refreshing.");
   }
   openView(id){
     const view=this.workspace.views.find(item=>item.id===id);
