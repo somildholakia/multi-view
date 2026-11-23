@@ -32,7 +32,7 @@ const APP_MARKUP = `
       </section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Each panel works independently</span></div><div class="views-heading__actions"><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -99,6 +99,8 @@ export class MultiViewApp {
         const imported=await readBackup(file);const existing=new Set(this.state.workspaces.map(workspace=>workspace.id));
         imported.workspaces.forEach(workspace=>{if(existing.has(workspace.id)){workspace.id=`imported-${Date.now()}-${workspace.id}`;existing.add(workspace.id);}});
         this.state.workspaces.push(...imported.workspaces);this.state.activeWorkspaceId=imported.workspaces[0]?.id||this.state.activeWorkspaceId;
+        const savedUrls=new Set(this.state.bookmarks.map(item=>item.url));
+        imported.bookmarks.forEach(item=>{if(!savedUrls.has(item.url)){this.state.bookmarks.push(item);savedUrls.add(item.url);}});
         this.persistAndRender();this.toast("Backup imported.","success");
       }catch(error){this.toast(error.message||"Could not import that backup.","error");}
       finally{event.target.value="";}
