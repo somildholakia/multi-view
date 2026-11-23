@@ -270,11 +270,11 @@ export class MultiViewApp {
       return getMediaDescriptor(view.url).type!=="website";
     });
     if(!targets.length)return this.toast("Add a YouTube link or video URL first.");
-    let opened=0;
     targets.forEach(view=>{
-      if(window.open(view.url,"_blank","noopener,noreferrer"))opened++;
+      const playerUrl=getMediaDescriptor(view.url,{autoPlay:true}).src;
+      window.open(playerUrl,"_blank","noopener,noreferrer");
     });
-    this.toast(`Opened ${opened} of ${targets.length} video tabs. Keep those tabs open; you can close the MultiView dashboard.`);
+    this.toast(`Requested ${targets.length} video tabs with muted autoplay. Keep those tabs open; you can close the MultiView dashboard. Allow pop-ups if the browser blocks them.`);
   }
   openAllViews(){
     const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
