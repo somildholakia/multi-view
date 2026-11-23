@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { addBookmark, removeBookmark } from "../src/features/bookmarks/bookmark-manager.js";
-import { addUrls, changeLayout, reorderViews, setAllViewsUrl } from "../src/features/views/view-manager.js";
+import { addUrls, changeLayout, clearAllViews, reorderViews, setAllViewsUrl } from "../src/features/views/view-manager.js";
 import {
   createWorkspace,
   duplicateWorkspace,
@@ -47,6 +47,17 @@ test("adding another website after reducing the visible count expands to show it
 
   assert.equal(workspace.layout, 4);
   assert.equal(workspace.views[3].url, "https://fourth.example/");
+});
+
+test("clear all windows removes panel URLs and resets to four blank panels", () => {
+  const workspace = createWorkspace();
+  changeLayout(workspace, 20);
+  addUrls(workspace, Array.from({ length: 20 }, (_, index) => "site" + (index + 1) + ".example"));
+
+  assert.equal(clearAllViews(workspace), 20);
+  assert.equal(workspace.layout, 4);
+  assert.equal(workspace.views.length, 4);
+  assert.equal(workspace.views.every(view => view.url === ""), true);
 });
 
 test("changing layouts preserves websites in panels that become hidden", () => {
