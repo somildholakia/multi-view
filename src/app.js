@@ -6,8 +6,9 @@ import { createWorkspace, duplicateWorkspace, LAYOUTS } from "./features/workspa
 import { addUrls, changeLayout, clearAllViews, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
 import { createViewCard, disposeViewCard, updateViewCard } from "./features/views/view-card.js";
 import { RefreshController } from "./features/refresh/refresh-controller.js";
-import { downloadBackup, readBackup } from "./features/import-export/backup.js";
+import { downloadBackup, readBackup, mergeBackup } from "./features/import-export/backup.js";
 import { createToastHost } from "./ui/toast.js";
+import { readLinkActivity, recordLinkAction, clearLinkActivity } from "./features/views/link-activity.js";
 import { addBookmark, removeBookmark } from "./features/bookmarks/bookmark-manager.js";
 import { FREE_PROXY_COUNTRIES, FREE_PROXY_DURATIONS, formatProxyTimeLeft, getFreeProxyLaunchUrl, getProxyCountry, normalizeProxySettings } from "./features/proxy/free-proxy.js";
 
@@ -33,8 +34,9 @@ const APP_MARKUP = `
       <div class="workspace-heading"><div class="workspace-name-group"><span class="section-kicker">CURRENT WORKSPACE</span><input id="workspace-name" class="workspace-name-input" maxlength="48" aria-label="Workspace name"/></div><div class="workspace-stats"><span id="active-count">0 active</span><span class="stat-divider"></span><span id="panel-count">4 panels</span><button id="duplicate-workspace" class="quiet-button workspace-action" type="button" title="Duplicate this workspace">Duplicate</button><button id="delete-workspace" class="quiet-button workspace-action workspace-action--danger" type="button" title="Delete this workspace">Delete</button></div></div>
       <section class="control-panel">
         <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>Window count</b><small>Choose anywhere from 1 to 20 panels</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
-        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox" checked/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Catches up once when you return from the background</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
+        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox"/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Web pages only · video players are not auto-refreshed</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
+      <section class="background-resilience-panel" aria-labelledby="link-activity-title"><div class="background-resilience-panel__top"><span class="background-resilience-panel__icon">↗</span><div><span class="section-kicker">LOCAL BROWSING ACTIVITY</span><b id="link-activity-title">Manual link-opening actions</b><p id="link-activity-count" aria-live="polite">0 recorded actions</p></div><button id="reset-link-activity" class="quiet-button" type="button">Reset</button></div><div class="background-resilience-panel__note">Counts explicit actions on this device, not page views on destination websites. A bulk action counts once. Blocked tabs, queued panels or rejected embeds may not result in visits. Automatic refresh and restored workspaces are excluded.</div></section>
       <section class="background-resilience-panel" aria-labelledby="background-resilience-title">
         <div class="background-resilience-panel__top">
           <span class="background-resilience-panel__icon">⏱</span>
@@ -56,7 +58,7 @@ const APP_MARKUP = `
         <div class="free-proxy-panel__top">
           <div class="free-proxy-panel__copy">
             <span class="free-proxy-panel__icon">🌐</span>
-            <div><span class="section-kicker">OPTIONAL THIRD-PARTY ROUTING</span><b>Free country proxy</b><p>Launch a separate Shifter proxy tab for any panel. MultiView copies that panel's URL for you.</p></div>
+            <div><span class="section-kicker">OPTIONAL THIRD-PARTY ROUTING</span><b>External web proxy (not a VPN)</b><p>Opens a separate third-party proxy page. Dashboard panels continue to use your normal browser network.</p></div>
           </div>
           <div class="free-proxy-panel__settings">
             <label>COUNTRY<select id="proxy-country" aria-label="Free proxy country"></select></label>
@@ -64,14 +66,14 @@ const APP_MARKUP = `
           </div>
         </div>
         <div class="free-proxy-panel__bottom">
-          <p>External browser tabs only. IPs may repeat. Do not use for banking or sensitive logins; streaming sites such as YouTube may not work reliably.</p>
-          <div class="free-proxy-panel__sessions"><span id="proxy-session-status">No proxy tabs launched</span><button id="close-proxy-sessions" class="quiet-button" type="button" disabled>Close proxy tabs</button></div>
+          <p>Routing status: unverified. MultiView cannot inspect the proxy connection or confirm an exit IP. A device VPN must be connected outside this website. Do not use untrusted proxies for sensitive logins.</p>
+          <div class="free-proxy-panel__sessions"><span id="proxy-session-status">No external proxy tabs launched</span><button id="close-proxy-sessions" class="quiet-button" type="button" disabled>Close proxy tabs</button></div>
           <div id="proxy-session-list" class="proxy-session-list" aria-live="polite"></div>
         </div>
       </section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to one blank panel">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open unique video links in separate tabs for manual playback">▶ Open video links</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><a class="quiet-button" href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube Studio analytics</a><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -143,6 +145,8 @@ export class MultiViewApp {
       this.toast("Workspace deleted.","success");
     });
     $("#open-all").addEventListener("click",()=>this.openAllViews());
+    $("#reset-link-activity").addEventListener("click",()=>{if(clearLinkActivity()){this.renderLinkActivity();}else this.toast("Could not reset local activity.","error");});
+    window.addEventListener("storage",event=>{if(event.key===null||event.key==="multi-view.link-activity.v1")this.renderLinkActivity();});
     $("#clear-all-views").addEventListener("click",()=>{
       const count=this.workspace.views.filter(view=>view.url).length;
       const hasExtraPanels=this.workspace.layout>1||this.workspace.views.length>1;
@@ -156,17 +160,18 @@ export class MultiViewApp {
     $("#open-video-tabs").addEventListener("click",()=>this.openVideoTabs());
     $("#add-sites-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#bulk-urls");
-      const urls=input.value.split(/[\n,]+/).map(line=>line.trim()).filter(Boolean);
+      const urls=input.value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
       if(!urls.length)return this.toast("Paste at least one website address.");
-      try{const count=addUrls(this.workspace,urls);input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
+      try{const count=addUrls(this.workspace,urls);if(count>0)this.recordLinkActivity("panel");input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
       catch(error){this.toast(error.message,"error");}
     });
     $("#all-windows-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#all-windows-url");
       try{
         const count=setAllViewsUrl(this.workspace,input.value);
+        if(count>0)this.recordLinkActivity("panel");
         input.value="";this.focusedViewId=null;this.persistAndRender();
-        this.toast(`Opened the website in all ${count} windows.`,"success");
+        this.toast(`Configured the website in ${count} windows. Loading depends on the browser and destination.`);
       }catch(error){this.toast(error.message,"error");}
     });
     $("#export-button").append(icon("download"));
@@ -175,11 +180,8 @@ export class MultiViewApp {
     $("#import-file").addEventListener("change",async event=>{
       const file=event.target.files?.[0];if(!file)return;
       try{
-        const imported=await readBackup(file);const existing=new Set(this.state.workspaces.map(workspace=>workspace.id));
-        imported.workspaces.forEach(workspace=>{if(existing.has(workspace.id)){workspace.id=`imported-${Date.now()}-${workspace.id}`;existing.add(workspace.id);}});
-        this.state.workspaces.push(...imported.workspaces);this.state.activeWorkspaceId=imported.workspaces[0]?.id||this.state.activeWorkspaceId;
-        const savedUrls=new Set(this.state.bookmarks.map(item=>item.url));
-        imported.bookmarks.forEach(item=>{if(!savedUrls.has(item.url)){this.state.bookmarks.push(item);savedUrls.add(item.url);}});
+        const imported=await readBackup(file);
+        this.state=mergeBackup(this.state,imported);this.focusedViewId=null;this.refreshPaused=false;
         this.persistAndRender();this.toast("Backup imported.","success");
       }catch(error){this.toast(error.message||"Could not import that backup.","error");}
       finally{event.target.value="";}
@@ -189,7 +191,16 @@ export class MultiViewApp {
     });
   }
   persistAndRender(){if(!saveState(this.state))this.toast("Browser storage is full. Export a backup before continuing.","error");this.render();}
-  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBackgroundStatus();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  render(){this.renderLinkActivity();this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBackgroundStatus();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  renderLinkActivity(){
+    const activity=readLinkActivity();
+    const mount=this.root.querySelector("#link-activity-count");
+    if(mount)mount.textContent=`${activity.panelActions} panel actions · ${activity.tabActions} tab actions`;
+  }
+  recordLinkActivity(kind){
+    if(!recordLinkAction(kind))this.toast("Local activity could not be saved.","error");
+    this.renderLinkActivity();
+  }
   renderWorkspaces(){
     const list=this.root.querySelector("#workspace-list");list.replaceChildren();
     this.state.workspaces.forEach(workspace=>{
@@ -226,9 +237,9 @@ export class MultiViewApp {
   renderRefreshControls(){
     const pause=this.root.querySelector("#pause-refresh");pause.disabled=!this.workspace.refreshInterval;
     pause.replaceChildren(icon(this.refreshPaused?"play":"pause"),el("span",{text:this.refreshPaused?"Resume":"Pause"}));
-    this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh all"}));
+    this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh web pages"}));
   }
-  configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused);}
+  configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused,this.workspace.id);}
   saveForBackground(){
     // Persist workspace data at the last reliably observable point before
     // Chrome hides, freezes, navigates away from, or discards this page.
@@ -366,14 +377,14 @@ export class MultiViewApp {
     if(!mount||!status||!closeButton)return;
     mount.replaceChildren();
     const sessions=[...this.proxySessions.values()];
-    status.textContent=sessions.length?`${sessions.length} proxy tab${sessions.length===1?"":"s"} tracked`:"No proxy tabs launched";
+    status.textContent=sessions.length?`${sessions.length} external proxy tab${sessions.length===1?"":"s"} tracked · routing unverified`:"No external proxy tabs launched";
     closeButton.disabled=!sessions.length;
     sessions.forEach(session=>{
       const remaining=session.expiresAt?formatProxyTimeLeft(session.expiresAt-Date.now()):"No timer";
       const detail=session.manualCloseRequired?"Timer ended · close this tab manually":session.expired?"Closing…":session.expiresAt?`Auto-close in ${remaining}`:"Auto-close off";
       mount.append(el("div",{className:"proxy-session-chip"},[
         el("strong",{text:`Panel ${session.panelNumber}`}),
-        el("span",{text:session.countryName}),
+        el("span",{text:`Requested: ${session.countryName} · unverified`}),
         el("small",{text:detail})
       ]));
     });
@@ -393,7 +404,7 @@ export class MultiViewApp {
   renderViews(){
     const grid=this.root.querySelector("#view-grid");grid.dataset.layout=String(this.workspace.layout);
     const handlers={
-      navigate:(id,raw)=>{try{setViewUrl(this.workspace,id,raw);this.persistAndRender();}catch(error){this.toast(error.message,"error");}},
+      navigate:(id,raw)=>{try{const view=this.workspace.views.find(item=>item.id===id);const previous=view?.url;setViewUrl(this.workspace,id,raw);if(view?.url&&view.url!==previous)this.recordLinkActivity("panel");this.persistAndRender();}catch(error){this.toast(error.message,"error");}},
       reload:id=>this.reloadView(id),open:id=>this.openView(id),proxy:id=>this.launchProxyForView(id),
       clear:id=>{clearView(this.workspace,id);if(this.focusedViewId===id)this.focusedViewId=null;this.persistAndRender();},
       bookmark:id=>this.toggleBookmark(id),
@@ -465,6 +476,7 @@ export class MultiViewApp {
     if(this.workspace.views.some(view=>view.url===bookmark.url))return this.toast("This website is already open in the current workspace.");
     try{
       addUrls(this.workspace,[bookmark.url]);
+      this.recordLinkActivity("panel");
       this.focusedViewId=null;this.persistAndRender();
       this.toast(`Opened ${bookmark.title} in this workspace.`,"success");
     }catch(error){this.toast(error.message,"error");}
@@ -473,6 +485,7 @@ export class MultiViewApp {
     const view=this.workspace.views.find(item=>item.id===id);
     const parts=this.panelNodes.get(id)?._parts;
     if(!view?.url||!parts)return this.toast("Add a website or video to this panel first.");
+    if(!parts.loaded)return this.toast("This panel is waiting to load. Scroll to it first.");
     const media=getMediaDescriptor(view.url,{autoPlay:this.workspace.autoPlayVideos!==false});
     if(media.type==="video"&&parts.video){
       parts.video.pause();parts.video.src=media.src;parts.video.load();
@@ -504,16 +517,16 @@ export class MultiViewApp {
       return getMediaDescriptor(view.url).type!=="website";
     });
     if(!targets.length)return this.toast("Add a YouTube link or video URL first.");
-    targets.forEach(view=>{
-      const playerUrl=getMediaDescriptor(view.url,{autoPlay:true}).src;
-      window.open(playerUrl,"_blank","noopener,noreferrer");
-    });
-    this.toast(`Requested ${targets.length} video tabs with muted autoplay. Keep those tabs open; you can close the MultiView dashboard. Allow pop-ups if the browser blocks them.`);
+    const links=[...new Set(targets.map(view=>view.url))];
+    links.forEach(url=>window.open(url,"_blank","noopener,noreferrer"));
+    this.recordLinkActivity("tab");
+    this.toast(`Requested ${links.length} unique video links for manual playback. Allow pop-ups if blocked.`);
   }
   openAllViews(){
     const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
     if(!targets.length)return this.toast("Add at least one website before opening tabs.");
     targets.forEach(view=>window.open(view.url,"_blank","noopener,noreferrer"));
+    this.recordLinkActivity("tab");
     this.toast(`Requested ${targets.length} browser tabs. Allow pop-ups for MultiView if any were blocked; keep those tabs open after closing this dashboard.`);
   }
   reloadAll(showToast=true){
@@ -522,17 +535,16 @@ export class MultiViewApp {
       const parts=this.panelNodes.get(view.id)?._parts;
       if(!parts)return;
       const media=getMediaDescriptor(view.url,{autoPlay:this.workspace.autoPlayVideos!==false});
-      if(media.type==="video"&&parts.video){
-        parts.video.pause();parts.video.src=media.src;parts.video.load();count++;
-      }else if(parts.frame){
+      if(media.type==="website"&&parts.loaded&&parts.frame&&!parts.frame.hidden){
         parts.frame.src=media.src;count++;
       }
     });
-    if(showToast)this.toast(count?`Refreshing ${count} panel${count===1?"":"s"}.`:"Add a website or video before refreshing.");
+    if(showToast)this.toast(count?`Refreshing ${count} website panel${count===1?"":"s"}.`:"No loaded website panels to refresh. Video players are skipped.");
   }
   openView(id){
     const view=this.workspace.views.find(item=>item.id===id);
     if(!view?.url)return this.toast("Add a website to this panel first.");
     window.open(view.url,"_blank","noopener,noreferrer");
+    this.recordLinkActivity("tab");
   }
 }

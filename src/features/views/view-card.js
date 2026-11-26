@@ -1,6 +1,7 @@
 import { el, icon } from "../../core/dom.js";
 import { getDomain, getFaviconUrl, getMediaDescriptor } from "../../core/url.js";
 import { loadPlaybackPosition } from "../media/playback-store.js";
+import { describePlayback } from "../media/playback-status.js";
 
 const MEDIA_ROOT_MARGIN = "360px 0px";
 const mediaObserver = typeof IntersectionObserver === "undefined"
@@ -24,6 +25,8 @@ function action(iconName,title,onClick,muted=false) {
 function releaseMedia(parts) {
   parts.pendingMedia = null;
   parts.mediaKey = "";
+  parts.loaded = false;
+  parts.playbackEvent = "";
   parts.frame.removeAttribute("src");
   delete parts.frame.dataset.mediaKey;
   parts.video.pause();
@@ -88,13 +91,14 @@ function updateMediaStatus(card, media) {
     label.textContent = "Ready when you are";
     hint.textContent = "Add a website or video URL";
   } else if (media.type === "video") {
-    label.textContent = "Video player ready";
-    hint.textContent = "Direct video · progress saved on this device";
+    const status = describePlayback(card._parts.video, card._parts.playbackEvent);
+    label.textContent = status.label;
+    hint.textContent = status.hint;
   } else if (["youtube","youtube-playlist","vimeo","dailymotion"].includes(media.type)) {
-    label.textContent = "Embedded video player";
-    hint.textContent = media.autoPlay ? "Muted autoplay requested · unmute manually" : "Tap play inside the player";
+    label.textContent = "Embedded player requested";
+    hint.textContent = "Playback and provider view counts are not verified here";
   } else {
-    label.textContent = "Website opened in panel";
+    label.textContent = "Website navigation requested";
     hint.textContent = "Some websites may block embedded browsing";
   }
 }
@@ -123,11 +127,11 @@ export function createViewCard(view,index,handlers) {
     action("expand","Focus this view",()=>handlers.focus(view.id)),
     action("trash","Clear this view",()=>handlers.clear(view.id),true),
     action("pip","Open direct video in Picture-in-Picture",()=>handlers.pictureInPicture(view.id)),
-    action("globe","Open this panel through the free country proxy",()=>handlers.proxy(view.id))
+    action("globe","Launch external proxy (not a VPN)",()=>handlers.proxy(view.id))
   ]);
   top.append(identity,actions);
   const form=el("form",{className:"view-url-form"});
-  const address=el("input",{className:"view-url-input",type:"url",placeholder:"Paste a website or video URL",attrs:{autocomplete:"url",spellcheck:"false","aria-label":"Website or video URL for view "+(index+1)}});
+  const address=el("input",{className:"view-url-input",type:"text",placeholder:"Paste a website or video URL",attrs:{inputmode:"url",autocomplete:"url",spellcheck:"false","aria-label":"Website or video URL for view "+(index+1)}});
   const go=el("button",{className:"go-button",type:"submit",text:"Go"});
   form.append(icon("layers","address-icon"),address,go);
   form.addEventListener("submit",event=>{event.preventDefault();handlers.navigate(view.id,address.value);});
@@ -139,7 +143,7 @@ export function createViewCard(view,index,handlers) {
   ]);
   const frame=el("iframe",{className:"view-frame",attrs:{
     title:"Website or video view "+(index+1),loading:"lazy",
-    allow:"autoplay; encrypted-media; fullscreen; clipboard-read; clipboard-write; picture-in-picture",
+    allow:"autoplay; encrypted-media; fullscreen; picture-in-picture",
     referrerpolicy:"strict-origin-when-cross-origin",
     allowfullscreen:""
   }});
@@ -180,10 +184,14 @@ export function createViewCard(view,index,handlers) {
     }
   });
   video.addEventListener("pause",savePosition);
-  video.addEventListener("error",()=>{
-    const hint=card.querySelector(".view-foot-hint");
-    if(hint)hint.textContent="This video format or source may not be supported by your browser";
-  });
+  for (const event of ["loadstart","loadedmetadata","canplay","play","playing","waiting","stalled","seeking","seeked","pause","ended","error","emptied"]) {
+    video.addEventListener(event,()=>{
+      const parts=card._parts;
+      if (!parts || !video.dataset.source || !parts.mediaKey.startsWith("video:") || parts.pendingMedia) return;
+      parts.playbackEvent=event;
+      updateMediaStatus(card,{type:"video"});
+    });
+  }
 
   stage.append(empty,frame,video);
   card.draggable=true;
@@ -208,14 +216,14 @@ export function createViewCard(view,index,handlers) {
   card.append(top,form,stage,foot);
   card._parts={
     identity,address,empty,frame,video,stage,foot,
-    pendingMedia:null,mediaKey:"",loaded:false,inLoadRange:false,observing:false,
+    pendingMedia:null,mediaKey:"",loaded:false,inLoadRange:false,observing:false,playbackEvent:"",
     bookmarkButton:actions.children[2],focusButton:actions.children[3],pipButton:actions.children[5]
   };
   updateViewCard(card,view,index,false);
   return card;
 }
 
-export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPlayVideos=true) {
+export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPlayVideos=false) {
   const {identity,address,empty,frame,video,stage,foot,focusButton,bookmarkButton,pipButton}=card._parts;
   const parts=card._parts;
   const title=identity.querySelector(".site-title");
@@ -248,6 +256,10 @@ export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPl
   empty.hidden=Boolean(media);
   card.classList.toggle("is-focused",focused);
   focusButton.title=focused?"Exit focused view":"Focus this view";
+  focusButton.setAttribute("aria-label",focusButton.title);
+  focusButton.setAttribute("aria-pressed",String(focused));
+  address.setAttribute("aria-label","Website or video URL for view "+(index+1));
+  frame.title="Website or video view "+(index+1);
   bookmarkButton.classList.toggle("is-saved",isBookmarked);
   bookmarkButton.title=isBookmarked?"Remove from quick access":"Save to quick access";
   bookmarkButton.setAttribute("aria-pressed",String(isBookmarked));
@@ -272,8 +284,9 @@ export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPl
     }
   }
 
-  if(isDirectVideo&&!pending&&autoPlayVideos&&video.paused&&video.readyState>=2){
-    video.muted=true;
-    video.play().catch(()=>{});
+  if(isDirectVideo&&!pending&&parts.loaded){
+    // Autoplay is a source-load preference, not a command to undo a user pause.
+    video.autoplay=false;
+    video.dataset.autoPlayVideos="false";
   }
 }

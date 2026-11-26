@@ -83,3 +83,19 @@ test("refresh does not run until its scheduled time is due", () => {
     controller.stop();
   });
 });
+
+ test("unchanged configuration preserves the next deadline; new workspace resets it",()=>{
+  withBrowserGlobals(timers=>{
+    const controller=new RefreshController(()=>{});
+    controller.configure(15,false,"one");
+    controller.nextTickAt=123;
+    const previous=controller.timer;
+    controller.configure(15,false,"one");
+    assert.equal(controller.nextTickAt,123);
+    assert.equal(controller.timer,previous);
+    controller.configure(15,false,"two");
+    assert.notEqual(controller.timer,previous);
+    assert.equal(timers.size,1);
+    controller.stop();
+  });
+});

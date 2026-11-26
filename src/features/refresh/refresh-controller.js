@@ -5,12 +5,17 @@ export class RefreshController {
     this.intervalMs=0;
     this.paused=false;
     this.nextTickAt=0;
+    this.scope=null;
   }
 
-  configure(seconds,paused=false) {
+  configure(seconds,paused=false,scope=null) {
+    const intervalMs=Math.max(0,Number(seconds)||0)*1000;
+    const nextPaused=Boolean(paused);
+    if(this.intervalMs===intervalMs&&this.paused===nextPaused&&this.scope===scope)return;
     this.stop();
-    this.intervalMs=Math.max(0,Number(seconds)||0)*1000;
-    this.paused=Boolean(paused);
+    this.intervalMs=intervalMs;
+    this.paused=nextPaused;
+    this.scope=scope;
     if(!this.intervalMs||this.paused)return;
     this.nextTickAt=Date.now()+this.intervalMs;
     this.timer=window.setInterval(()=>this.checkDue(),this.intervalMs);

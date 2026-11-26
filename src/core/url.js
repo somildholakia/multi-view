@@ -5,6 +5,7 @@ export function normalizeUrl(rawValue) {
   let parsed;
   try { parsed = new URL(candidate); } catch { throw new Error("That doesn't look like a valid website address."); }
   if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Only HTTP and HTTPS website addresses are supported.");
+  if (parsed.username || parsed.password) throw new Error("Addresses containing credentials are not supported.");
   return parsed.href;
 }
 
