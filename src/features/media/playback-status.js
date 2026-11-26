@@ -6,7 +6,7 @@ export function describePlayback(video, event = "") {
   if (video.readyState === 0) return {label:"Loading video",hint:"Waiting for media data"};
   if (video.paused) return {label:"Paused",hint:"Press play to continue"};
   if (video.readyState < 3 || event === "waiting") return {label:"Buffering",hint:"Waiting for playable media"};
-  if (event === "playing" || (video.readyState >= 3 && video.currentTime > 0 && event !== "play")) {
+  if (event === "playing") {
     return {label:"Playing locally",hint:"Local playback only · not a platform view count"};
   }
   return {label:"Starting playback",hint:"Waiting for playback confirmation"};
