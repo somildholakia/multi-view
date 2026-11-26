@@ -133,3 +133,7 @@ No server-side environment variables are required.
 ## Local link activity
 
 The dashboard records manual panel navigation/configuration actions and requests to open external tabs. Each user action counts once, including bulk operations, regardless of the number of panels or tabs. No URLs, browsing history, IP addresses or third-party analytics are stored by this counter. Reset removes the local counts. Automatic refresh, startup restoration, and proxy launches do not increment these counts. Browser restrictions and third-party iframe isolation mean these counts do not establish a successful page load or a destination website’s analytics event. For websites you own, verify real visits with your own server logs or first-party analytics.
+
+### Reliability and privacy hardening
+
+Imported backups are limited to 2 MB. Import creates independent workspace and panel IDs, deduplicates saved bookmarks, and keeps existing workspaces. Bulk input expects one URL per line (commas inside URLs are preserved). Ordinary workspace edits do not restart a paused direct video, and unchanged refresh preferences retain their scheduled deadline. Production assets use content-hashed names and the service worker pre-caches the app entry assets. Offline operation applies to the workspace shell, not external websites.

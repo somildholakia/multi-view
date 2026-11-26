@@ -131,7 +131,7 @@ export function createViewCard(view,index,handlers) {
   ]);
   top.append(identity,actions);
   const form=el("form",{className:"view-url-form"});
-  const address=el("input",{className:"view-url-input",type:"url",placeholder:"Paste a website or video URL",attrs:{autocomplete:"url",spellcheck:"false","aria-label":"Website or video URL for view "+(index+1)}});
+  const address=el("input",{className:"view-url-input",type:"text",placeholder:"Paste a website or video URL",attrs:{inputmode:"url",autocomplete:"url",spellcheck:"false","aria-label":"Website or video URL for view "+(index+1)}});
   const go=el("button",{className:"go-button",type:"submit",text:"Go"});
   form.append(icon("layers","address-icon"),address,go);
   form.addEventListener("submit",event=>{event.preventDefault();handlers.navigate(view.id,address.value);});
@@ -256,6 +256,10 @@ export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPl
   empty.hidden=Boolean(media);
   card.classList.toggle("is-focused",focused);
   focusButton.title=focused?"Exit focused view":"Focus this view";
+  focusButton.setAttribute("aria-label",focusButton.title);
+  focusButton.setAttribute("aria-pressed",String(focused));
+  address.setAttribute("aria-label","Website or video URL for view "+(index+1));
+  frame.title="Website or video view "+(index+1);
   bookmarkButton.classList.toggle("is-saved",isBookmarked);
   bookmarkButton.title=isBookmarked?"Remove from quick access":"Save to quick access";
   bookmarkButton.setAttribute("aria-pressed",String(isBookmarked));
@@ -280,8 +284,9 @@ export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPl
     }
   }
 
-  if(isDirectVideo&&!pending&&autoPlayVideos&&video.paused&&video.readyState>=2){
-    video.muted=true;
-    video.play().catch(()=>{});
+  if(isDirectVideo&&!pending&&parts.loaded){
+    // Autoplay is a source-load preference, not a command to undo a user pause.
+    video.autoplay=false;
+    video.dataset.autoPlayVideos="false";
   }
 }

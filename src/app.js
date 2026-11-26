@@ -6,7 +6,7 @@ import { createWorkspace, duplicateWorkspace, LAYOUTS } from "./features/workspa
 import { addUrls, changeLayout, clearAllViews, clearView, reorderViews, setAllViewsUrl, setViewUrl } from "./features/views/view-manager.js";
 import { createViewCard, disposeViewCard, updateViewCard } from "./features/views/view-card.js";
 import { RefreshController } from "./features/refresh/refresh-controller.js";
-import { downloadBackup, readBackup } from "./features/import-export/backup.js";
+import { downloadBackup, readBackup, mergeBackup } from "./features/import-export/backup.js";
 import { createToastHost } from "./ui/toast.js";
 import { readLinkActivity, recordLinkAction, clearLinkActivity } from "./features/views/link-activity.js";
 import { addBookmark, removeBookmark } from "./features/bookmarks/bookmark-manager.js";
@@ -160,7 +160,7 @@ export class MultiViewApp {
     $("#open-video-tabs").addEventListener("click",()=>this.openVideoTabs());
     $("#add-sites-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#bulk-urls");
-      const urls=input.value.split(/[\n,]+/).map(line=>line.trim()).filter(Boolean);
+      const urls=input.value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
       if(!urls.length)return this.toast("Paste at least one website address.");
       try{const count=addUrls(this.workspace,urls);if(count>0)this.recordLinkActivity("panel");input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
       catch(error){this.toast(error.message,"error");}
@@ -180,11 +180,8 @@ export class MultiViewApp {
     $("#import-file").addEventListener("change",async event=>{
       const file=event.target.files?.[0];if(!file)return;
       try{
-        const imported=await readBackup(file);const existing=new Set(this.state.workspaces.map(workspace=>workspace.id));
-        imported.workspaces.forEach(workspace=>{if(existing.has(workspace.id)){workspace.id=`imported-${Date.now()}-${workspace.id}`;existing.add(workspace.id);}});
-        this.state.workspaces.push(...imported.workspaces);this.state.activeWorkspaceId=imported.workspaces[0]?.id||this.state.activeWorkspaceId;
-        const savedUrls=new Set(this.state.bookmarks.map(item=>item.url));
-        imported.bookmarks.forEach(item=>{if(!savedUrls.has(item.url)){this.state.bookmarks.push(item);savedUrls.add(item.url);}});
+        const imported=await readBackup(file);
+        this.state=mergeBackup(this.state,imported);this.focusedViewId=null;this.refreshPaused=false;
         this.persistAndRender();this.toast("Backup imported.","success");
       }catch(error){this.toast(error.message||"Could not import that backup.","error");}
       finally{event.target.value="";}
@@ -242,7 +239,7 @@ export class MultiViewApp {
     pause.replaceChildren(icon(this.refreshPaused?"play":"pause"),el("span",{text:this.refreshPaused?"Resume":"Pause"}));
     this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh web pages"}));
   }
-  configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused);}
+  configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused,this.workspace.id);}
   saveForBackground(){
     // Persist workspace data at the last reliably observable point before
     // Chrome hides, freezes, navigates away from, or discards this page.
@@ -488,6 +485,7 @@ export class MultiViewApp {
     const view=this.workspace.views.find(item=>item.id===id);
     const parts=this.panelNodes.get(id)?._parts;
     if(!view?.url||!parts)return this.toast("Add a website or video to this panel first.");
+    if(!parts.loaded)return this.toast("This panel is waiting to load. Scroll to it first.");
     const media=getMediaDescriptor(view.url,{autoPlay:this.workspace.autoPlayVideos!==false});
     if(media.type==="video"&&parts.video){
       parts.video.pause();parts.video.src=media.src;parts.video.load();

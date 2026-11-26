@@ -6,13 +6,6 @@ export default defineConfig({
   build: {
     target: "es2022",
     outDir: "dist",
-    emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        entryFileNames: "assets/app.js",
-        chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/app.[ext]"
-      }
-    }
+    emptyOutDir: true
   }
 });

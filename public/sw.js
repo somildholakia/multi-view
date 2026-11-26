@@ -1,4 +1,4 @@
-const CACHE_NAME = "multiview-shell-v8";
+const CACHE_NAME = "multiview-shell-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,7 +8,17 @@ const APP_SHELL = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then(async cache => {
+      await cache.addAll(APP_SHELL);
+      // Vite uses content-hashed bundle names. Cache entry assets at install.
+      const index = await cache.match("./index.html");
+      const html = await index.text();
+      const assets = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
+        .map(match => new URL(match[1], self.registration.scope))
+        .filter(url => url.href.startsWith(self.registration.scope + "assets/"))
+        .map(url => url.href);
+      await cache.addAll([...new Set(assets)]);
+    })
   );
   self.skipWaiting();
 });
@@ -31,7 +41,10 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || !url.href.startsWith(self.registration.scope)) return;
+  // Never cache arbitrary embedded pages or API responses as application assets.
+  if (request.mode === "navigate" && url.pathname !== new URL("./",self.registration.scope).pathname && url.pathname !== new URL("index.html",self.registration.scope).pathname) return;
+  if (request.mode !== "navigate" && !["script","style","image","font","manifest"].includes(request.destination)) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
