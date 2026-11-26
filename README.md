@@ -100,6 +100,12 @@ Installing the PWA gives the app its own launch icon and preserves workspace con
 
 MultiView is intentionally a website-only product. A website/PWA cannot keep arbitrary remote pages, videos or iframe JavaScript running after every page and browser window has been closed. A service worker is event-driven and may be stopped by the browser when idle. Auto-refresh inside the MultiView dashboard runs only while the dashboard is open and visible. Use **Open all in tabs** to leave the websites running in ordinary browser tabs after closing the dashboard; the browser remains responsible for how long those tabs stay active.
 
+## Playback verification and network status
+
+Direct video panels report local playback state using native media events (loading, paused, buffering, playing, ended and errors). These states describe the local player only. Embedded third-party players are labeled as requested rather than confirmed because an iframe load is not proof of playback or a counted view. For YouTube channel metrics, consult YouTube Studio or the official authorized analytics API; MultiView does not create or validate external platform views.
+
+The external proxy panel reports a requested country and tracks the tab, not a verified tunnel. It cannot establish a device VPN or route individual iframes. Use a trusted OS-level VPN for ordinary privacy needs and independently verify connectivity with that VPN client. Do not use proxies or repeated playback to manufacture engagement.
+
 ## Privacy
 
 Workspace names, layout choices, autoplay settings and entered URLs are stored in localStorage on the current browser. Direct-video resume positions are stored in a local IndexedDB database on that browser. The app does not send this configuration or playback history to a MultiView server. Opening a URL still makes a normal connection to that website. The favicon helper requests a site's icon from Google's favicon endpoint.

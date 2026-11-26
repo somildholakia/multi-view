@@ -56,7 +56,7 @@ const APP_MARKUP = `
         <div class="free-proxy-panel__top">
           <div class="free-proxy-panel__copy">
             <span class="free-proxy-panel__icon">🌐</span>
-            <div><span class="section-kicker">OPTIONAL THIRD-PARTY ROUTING</span><b>Free country proxy</b><p>Launch a separate Shifter proxy tab for any panel. MultiView copies that panel's URL for you.</p></div>
+            <div><span class="section-kicker">OPTIONAL THIRD-PARTY ROUTING</span><b>External web proxy (not a VPN)</b><p>Opens a separate third-party proxy page. Dashboard panels continue to use your normal browser network.</p></div>
           </div>
           <div class="free-proxy-panel__settings">
             <label>COUNTRY<select id="proxy-country" aria-label="Free proxy country"></select></label>
@@ -64,8 +64,8 @@ const APP_MARKUP = `
           </div>
         </div>
         <div class="free-proxy-panel__bottom">
-          <p>External browser tabs only. IPs may repeat. Do not use for banking or sensitive logins; streaming sites such as YouTube may not work reliably.</p>
-          <div class="free-proxy-panel__sessions"><span id="proxy-session-status">No proxy tabs launched</span><button id="close-proxy-sessions" class="quiet-button" type="button" disabled>Close proxy tabs</button></div>
+          <p>Routing status: unverified. MultiView cannot inspect the proxy connection or confirm an exit IP. A device VPN must be connected outside this website. Do not use untrusted proxies for sensitive logins.</p>
+          <div class="free-proxy-panel__sessions"><span id="proxy-session-status">No external proxy tabs launched</span><button id="close-proxy-sessions" class="quiet-button" type="button" disabled>Close proxy tabs</button></div>
           <div id="proxy-session-list" class="proxy-session-list" aria-live="polite"></div>
         </div>
       </section>
@@ -366,14 +366,14 @@ export class MultiViewApp {
     if(!mount||!status||!closeButton)return;
     mount.replaceChildren();
     const sessions=[...this.proxySessions.values()];
-    status.textContent=sessions.length?`${sessions.length} proxy tab${sessions.length===1?"":"s"} tracked`:"No proxy tabs launched";
+    status.textContent=sessions.length?`${sessions.length} external proxy tab${sessions.length===1?"":"s"} tracked · routing unverified`:"No external proxy tabs launched";
     closeButton.disabled=!sessions.length;
     sessions.forEach(session=>{
       const remaining=session.expiresAt?formatProxyTimeLeft(session.expiresAt-Date.now()):"No timer";
       const detail=session.manualCloseRequired?"Timer ended · close this tab manually":session.expired?"Closing…":session.expiresAt?`Auto-close in ${remaining}`:"Auto-close off";
       mount.append(el("div",{className:"proxy-session-chip"},[
         el("strong",{text:`Panel ${session.panelNumber}`}),
-        el("span",{text:session.countryName}),
+        el("span",{text:`Requested: ${session.countryName} · unverified`}),
         el("small",{text:detail})
       ]));
     });
