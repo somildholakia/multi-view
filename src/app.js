@@ -8,6 +8,7 @@ import { createViewCard, disposeViewCard, updateViewCard } from "./features/view
 import { RefreshController } from "./features/refresh/refresh-controller.js";
 import { downloadBackup, readBackup } from "./features/import-export/backup.js";
 import { createToastHost } from "./ui/toast.js";
+import { readLinkActivity, recordLinkAction, clearLinkActivity } from "./features/views/link-activity.js";
 import { addBookmark, removeBookmark } from "./features/bookmarks/bookmark-manager.js";
 import { FREE_PROXY_COUNTRIES, FREE_PROXY_DURATIONS, formatProxyTimeLeft, getFreeProxyLaunchUrl, getProxyCountry, normalizeProxySettings } from "./features/proxy/free-proxy.js";
 
@@ -35,6 +36,7 @@ const APP_MARKUP = `
         <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>Window count</b><small>Choose anywhere from 1 to 20 panels</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
         <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox"/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Web pages only · video players are not auto-refreshed</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
+      <section class="background-resilience-panel" aria-labelledby="link-activity-title"><div class="background-resilience-panel__top"><span class="background-resilience-panel__icon">↗</span><div><span class="section-kicker">LOCAL BROWSING ACTIVITY</span><b id="link-activity-title">Manual link-opening actions</b><p id="link-activity-count" aria-live="polite">0 recorded actions</p></div><button id="reset-link-activity" class="quiet-button" type="button">Reset</button></div><div class="background-resilience-panel__note">Counts explicit actions on this device, not page views on destination websites. A bulk action counts once. Blocked tabs, queued panels or rejected embeds may not result in visits. Automatic refresh and restored workspaces are excluded.</div></section>
       <section class="background-resilience-panel" aria-labelledby="background-resilience-title">
         <div class="background-resilience-panel__top">
           <span class="background-resilience-panel__icon">⏱</span>
@@ -143,6 +145,8 @@ export class MultiViewApp {
       this.toast("Workspace deleted.","success");
     });
     $("#open-all").addEventListener("click",()=>this.openAllViews());
+    $("#reset-link-activity").addEventListener("click",()=>{if(clearLinkActivity()){this.renderLinkActivity();}else this.toast("Could not reset local activity.","error");});
+    window.addEventListener("storage",event=>{if(event.key===null||event.key==="multi-view.link-activity.v1")this.renderLinkActivity();});
     $("#clear-all-views").addEventListener("click",()=>{
       const count=this.workspace.views.filter(view=>view.url).length;
       const hasExtraPanels=this.workspace.layout>1||this.workspace.views.length>1;
@@ -158,15 +162,16 @@ export class MultiViewApp {
       event.preventDefault();const input=$("#bulk-urls");
       const urls=input.value.split(/[\n,]+/).map(line=>line.trim()).filter(Boolean);
       if(!urls.length)return this.toast("Paste at least one website address.");
-      try{const count=addUrls(this.workspace,urls);input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
+      try{const count=addUrls(this.workspace,urls);if(count>0)this.recordLinkActivity("panel");input.value="";this.focusedViewId=null;this.persistAndRender();this.toast(`${count} website${count===1?"":"s"} added to this workspace.`,"success");}
       catch(error){this.toast(error.message,"error");}
     });
     $("#all-windows-form").addEventListener("submit",event=>{
       event.preventDefault();const input=$("#all-windows-url");
       try{
         const count=setAllViewsUrl(this.workspace,input.value);
+        if(count>0)this.recordLinkActivity("panel");
         input.value="";this.focusedViewId=null;this.persistAndRender();
-        this.toast(`Opened the website in all ${count} windows.`,"success");
+        this.toast(`Configured the website in ${count} windows. Loading depends on the browser and destination.`);
       }catch(error){this.toast(error.message,"error");}
     });
     $("#export-button").append(icon("download"));
@@ -189,7 +194,16 @@ export class MultiViewApp {
     });
   }
   persistAndRender(){if(!saveState(this.state))this.toast("Browser storage is full. Export a backup before continuing.","error");this.render();}
-  render(){this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBackgroundStatus();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  render(){this.renderLinkActivity();this.renderWorkspaces();this.renderWorkspaceHeader();this.renderLayoutOptions();this.renderRefreshControls();this.renderProxyControls();this.renderProxySessions();this.renderBackgroundStatus();this.renderBookmarks();this.renderViews();this.configureRefresh();}
+  renderLinkActivity(){
+    const activity=readLinkActivity();
+    const mount=this.root.querySelector("#link-activity-count");
+    if(mount)mount.textContent=`${activity.panelActions} panel actions · ${activity.tabActions} tab actions`;
+  }
+  recordLinkActivity(kind){
+    if(!recordLinkAction(kind))this.toast("Local activity could not be saved.","error");
+    this.renderLinkActivity();
+  }
   renderWorkspaces(){
     const list=this.root.querySelector("#workspace-list");list.replaceChildren();
     this.state.workspaces.forEach(workspace=>{
@@ -393,7 +407,7 @@ export class MultiViewApp {
   renderViews(){
     const grid=this.root.querySelector("#view-grid");grid.dataset.layout=String(this.workspace.layout);
     const handlers={
-      navigate:(id,raw)=>{try{setViewUrl(this.workspace,id,raw);this.persistAndRender();}catch(error){this.toast(error.message,"error");}},
+      navigate:(id,raw)=>{try{const view=this.workspace.views.find(item=>item.id===id);const previous=view?.url;setViewUrl(this.workspace,id,raw);if(view?.url&&view.url!==previous)this.recordLinkActivity("panel");this.persistAndRender();}catch(error){this.toast(error.message,"error");}},
       reload:id=>this.reloadView(id),open:id=>this.openView(id),proxy:id=>this.launchProxyForView(id),
       clear:id=>{clearView(this.workspace,id);if(this.focusedViewId===id)this.focusedViewId=null;this.persistAndRender();},
       bookmark:id=>this.toggleBookmark(id),
@@ -465,6 +479,7 @@ export class MultiViewApp {
     if(this.workspace.views.some(view=>view.url===bookmark.url))return this.toast("This website is already open in the current workspace.");
     try{
       addUrls(this.workspace,[bookmark.url]);
+      this.recordLinkActivity("panel");
       this.focusedViewId=null;this.persistAndRender();
       this.toast(`Opened ${bookmark.title} in this workspace.`,"success");
     }catch(error){this.toast(error.message,"error");}
@@ -506,12 +521,14 @@ export class MultiViewApp {
     if(!targets.length)return this.toast("Add a YouTube link or video URL first.");
     const links=[...new Set(targets.map(view=>view.url))];
     links.forEach(url=>window.open(url,"_blank","noopener,noreferrer"));
+    this.recordLinkActivity("tab");
     this.toast(`Requested ${links.length} unique video links for manual playback. Allow pop-ups if blocked.`);
   }
   openAllViews(){
     const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
     if(!targets.length)return this.toast("Add at least one website before opening tabs.");
     targets.forEach(view=>window.open(view.url,"_blank","noopener,noreferrer"));
+    this.recordLinkActivity("tab");
     this.toast(`Requested ${targets.length} browser tabs. Allow pop-ups for MultiView if any were blocked; keep those tabs open after closing this dashboard.`);
   }
   reloadAll(showToast=true){
@@ -530,5 +547,6 @@ export class MultiViewApp {
     const view=this.workspace.views.find(item=>item.id===id);
     if(!view?.url)return this.toast("Add a website to this panel first.");
     window.open(view.url,"_blank","noopener,noreferrer");
+    this.recordLinkActivity("tab");
   }
 }

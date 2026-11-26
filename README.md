@@ -129,3 +129,7 @@ No server-side environment variables are required.
 - Confirm an offline asset failure does not return HTML, and unrelated service-worker caches survive activation.
 - Check actual browser playback on desktop and Android. For channel metrics, sign into YouTube Studio; a local playback state is not an external view count.
 - External proxy handoff is unverified, not a VPN tunnel. Device VPN connectivity is managed outside this application.
+
+## Local link activity
+
+The dashboard records manual panel navigation/configuration actions and requests to open external tabs. Each user action counts once, including bulk operations, regardless of the number of panels or tabs. No URLs, browsing history, IP addresses or third-party analytics are stored by this counter. Reset removes the local counts. Automatic refresh, startup restoration, and proxy launches do not increment these counts. Browser restrictions and third-party iframe isolation mean these counts do not establish a successful page load or a destination website’s analytics event. For websites you own, verify real visits with your own server logs or first-party analytics.
