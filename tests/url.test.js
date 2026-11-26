@@ -85,3 +85,7 @@ test("YouTube playlist embeds request muted autoplay when enabled",()=>{
   assert.equal(new URL(media.src).searchParams.get("autoplay"),"1");
   assert.equal(new URL(media.src).searchParams.get("mute"),"1");
 });
+
+ test("rejects URLs containing embedded credentials",()=>{
+  assert.throws(()=>normalizeUrl("https://user:password@example.com/"),/credentials/);
+});

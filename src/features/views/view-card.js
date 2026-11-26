@@ -143,7 +143,7 @@ export function createViewCard(view,index,handlers) {
   ]);
   const frame=el("iframe",{className:"view-frame",attrs:{
     title:"Website or video view "+(index+1),loading:"lazy",
-    allow:"autoplay; encrypted-media; fullscreen; clipboard-read; clipboard-write; picture-in-picture",
+    allow:"autoplay; encrypted-media; fullscreen; picture-in-picture",
     referrerpolicy:"strict-origin-when-cross-origin",
     allowfullscreen:""
   }});
@@ -223,7 +223,7 @@ export function createViewCard(view,index,handlers) {
   return card;
 }
 
-export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPlayVideos=true) {
+export function updateViewCard(card,view,index,focused,isBookmarked=false,autoPlayVideos=false) {
   const {identity,address,empty,frame,video,stage,foot,focusButton,bookmarkButton,pipButton}=card._parts;
   const parts=card._parts;
   const title=identity.querySelector(".site-title");

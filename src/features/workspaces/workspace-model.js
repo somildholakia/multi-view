@@ -2,36 +2,47 @@ import { createId } from "../../core/ids.js";
 import { normalizeUrl } from "../../core/url.js";
 export const MAX_PANELS=20;
 export const LAYOUTS=Array.from({length:MAX_PANELS},(_,index)=>index+1);
-export function createView(url=""){return{id:createId("view"),url};}
+function safeSavedUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try { return normalizeUrl(value); } catch { return ""; }
+}
+function uniqueId(candidate, prefix, seen) {
+  let id = typeof candidate === "string" && candidate.trim() ? candidate : createId(prefix);
+  while (seen.has(id)) id = createId(prefix);
+  seen.add(id);
+  return id;
+}
+export function createView(url=""){return{id:createId("view"),url:safeSavedUrl(url)};}
 export function createWorkspace(name="My workspace"){
-  return{id:createId("workspace"),name,layout:4,refreshInterval:0,autoPlayVideos:true,views:Array.from({length:4},()=>createView())};
+  return{id:createId("workspace"),name,layout:4,refreshInterval:0,autoPlayVideos:false,views:Array.from({length:4},()=>createView())};
 }
 export function duplicateWorkspace(source,name){
   const copy=createWorkspace(name||`${source?.name||"Workspace"} copy`);
   copy.layout=LAYOUTS.includes(Number(source?.layout))?Number(source.layout):4;
   copy.refreshInterval=[0,15,30,60,300].includes(Number(source?.refreshInterval))?Number(source.refreshInterval):0;
-  copy.autoPlayVideos=source?.autoPlayVideos!==false;
+  copy.autoPlayVideos=source?.autoPlayVideos===true;
   copy.views=(Array.isArray(source?.views)?source.views:[]).slice(0,MAX_PANELS).map(view=>createView(typeof view?.url==="string"?view.url:""));
   while(copy.views.length<copy.layout)copy.views.push(createView());
   return copy;
 }
-export function normalizeWorkspace(input){
+export function normalizeWorkspace(input, seenViews=new Set(), seenWorkspaces=new Set()){
   const requestedLayout=Number(input?.layout);
   const layout=Number.isInteger(requestedLayout)&&requestedLayout>=1&&requestedLayout<=MAX_PANELS?requestedLayout:4;
   const incoming=Array.isArray(input?.views)?input.views.slice(0,MAX_PANELS):[];
-  const views=incoming.map(view=>({id:typeof view?.id==="string"?view.id:createId("view"),url:typeof view?.url==="string"?view.url:""}));
-  while(views.length<layout)views.push(createView());
+  const views=incoming.map(view=>({id:uniqueId(view?.id,"view",seenViews),url:safeSavedUrl(view?.url)}));
+  while(views.length<layout)views.push({id:uniqueId(null,"view",seenViews),url:""});
   const refresh=Number(input?.refreshInterval);
   return{
-    id:typeof input?.id==="string"?input.id:createId("workspace"),
+    id:uniqueId(input?.id,"workspace",seenWorkspaces),
     name:typeof input?.name==="string"&&input.name.trim()?input.name.trim().slice(0,48):"My workspace",
     layout,refreshInterval:[0,15,30,60,300].includes(refresh)?refresh:0,
-    autoPlayVideos:input?.autoPlayVideos!==false,views
+    autoPlayVideos:input?.autoPlayVideos===true,views
   };
 }
 export function normalizeAppState(input){
   const source=Array.isArray(input?.workspaces)?input.workspaces:[];
-  const workspaces=source.length?source.map(normalizeWorkspace):[createWorkspace()];
+  const seenViews=new Set(), seenWorkspaces=new Set();
+  const workspaces=source.length?source.map(item=>normalizeWorkspace(item,seenViews,seenWorkspaces)):[createWorkspace()];
   const wantedId=input?.activeWorkspaceId;
   const activeWorkspaceId=workspaces.some(workspace=>workspace.id===wantedId)?wantedId:workspaces[0].id;
   const bookmarks=(Array.isArray(input?.bookmarks)?input.bookmarks.slice(0,100):[]).map(item=>{

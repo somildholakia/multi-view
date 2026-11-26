@@ -83,12 +83,12 @@ test("panel reordering moves the selected website without losing it", () => {
   assert.equal(workspace.views[2].url, "https://second.example/");
 });
 
-test("autoplay is enabled for new workspaces and survives duplication", () => {
+test("autoplay is disabled by default and explicit preference survives duplication", () => {
   const workspace = createWorkspace("Videos");
-  assert.equal(workspace.autoPlayVideos, true);
-  workspace.autoPlayVideos = false;
+  assert.equal(workspace.autoPlayVideos, false);
+  workspace.autoPlayVideos = true;
   const copy = duplicateWorkspace(workspace);
-  assert.equal(copy.autoPlayVideos, false);
+  assert.equal(copy.autoPlayVideos, true);
 });
 
 test("workspace duplication copies URLs but generates independent panel IDs", () => {
@@ -135,4 +135,14 @@ test("invalid saved settings are normalized to safe defaults", () => {
   assert.equal(state.workspaces[0].layout, 4);
   assert.equal(state.workspaces[0].refreshInterval, 0);
   assert.equal(state.workspaces[0].views.length, 4);
+});
+
+ test("imported panel URLs are validated and duplicate IDs repaired across workspaces",()=>{
+  const state=normalizeAppState({activeWorkspaceId:"same",workspaces:[{id:"same",layout:4,views:[{id:"same-view",url:"javascript:alert(1)"},{id:"same-view",url:"https://u:p@example.com/"},{id:"good",url:"example.com"},{id:"data",url:"data:text/html,unsafe"}]},{id:"same",views:[{id:"good",url:"https://example.org/"}]}]});
+  assert.deepEqual(state.workspaces[0].views.map(v=>v.url),["","","https://example.com/",""]);
+  const ids=state.workspaces.flatMap(w=>w.views.map(v=>v.id));
+  assert.equal(new Set(ids).size,ids.length);
+  assert.notEqual(state.workspaces[0].id,state.workspaces[1].id);
+  assert.equal(state.activeWorkspaceId,"same");
+  assert.equal(state.workspaces[0].autoPlayVideos,false);
 });

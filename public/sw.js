@@ -1,4 +1,4 @@
-const CACHE_NAME = "multiview-shell-v7";
+const CACHE_NAME = "multiview-shell-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -18,7 +18,7 @@ self.addEventListener("activate", event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME)
+          .filter(key => key.startsWith("multiview-shell-") && key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
     )
@@ -44,27 +44,20 @@ self.addEventListener("fetch", event => {
         if (response.ok) await cache.put("./index.html", response.clone());
         return response;
       } catch {
-        return cached || await cache.match("./index.html");
+        return cached || await cache.match("./index.html") || Response.error();
       }
     }
 
-    // Serve cached same-origin assets immediately and refresh them in the
-    // background. This also handles Vite's hashed production asset names.
-    if (cached) {
-      event.waitUntil(
-        fetch(request)
-          .then(response => response.ok ? cache.put(request, response.clone()) : undefined)
-          .catch(() => undefined)
-      );
-      return cached;
-    }
+    // Serve cached same-origin assets immediately. Production bundle filenames
+    // are content-hashed; missing assets must not receive an HTML response.
+    if (cached) return cached;
 
     try {
       const response = await fetch(request);
       if (response.ok) await cache.put(request, response.clone());
       return response;
     } catch {
-      return await cache.match("./index.html");
+      return Response.error();
     }
   })());
 });

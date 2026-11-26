@@ -33,7 +33,7 @@ const APP_MARKUP = `
       <div class="workspace-heading"><div class="workspace-name-group"><span class="section-kicker">CURRENT WORKSPACE</span><input id="workspace-name" class="workspace-name-input" maxlength="48" aria-label="Workspace name"/></div><div class="workspace-stats"><span id="active-count">0 active</span><span class="stat-divider"></span><span id="panel-count">4 panels</span><button id="duplicate-workspace" class="quiet-button workspace-action" type="button" title="Duplicate this workspace">Duplicate</button><button id="delete-workspace" class="quiet-button workspace-action workspace-action--danger" type="button" title="Delete this workspace">Delete</button></div></div>
       <section class="control-panel">
         <div class="control-panel__top"><div class="control-title"><span class="control-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><div><b>Window count</b><small>Choose anywhere from 1 to 20 panels</small></div></div><div class="panel-count-control"><label for="panel-count-select">WINDOWS</label><select id="panel-count-select" aria-label="Choose number of windows"></select><span class="panel-count-note">1–20</span></div></div>
-        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox" checked/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Catches up once when you return from the background</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
+        <div class="control-panel__bottom"><label class="autoplay-toggle" for="autoplay-videos"><input id="autoplay-videos" type="checkbox"/><span><b>Autoplay videos</b><small>Starts muted so browsers are more likely to allow playback</small></span></label><div class="refresh-control"><span class="refresh-label">AUTO REFRESH</span><select id="refresh-interval" aria-label="Auto refresh interval"><option value="0">Off</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select><span class="refresh-note">Web pages only · video players are not auto-refreshed</span></div><div class="refresh-actions"><button id="pause-refresh" class="quiet-button"></button><button id="reload-all" class="primary-button"></button></div></div>
       </section>
       <section class="background-resilience-panel" aria-labelledby="background-resilience-title">
         <div class="background-resilience-panel__top">
@@ -71,7 +71,7 @@ const APP_MARKUP = `
       </section>
       <section class="add-sites"><div class="add-sites__copy"><span class="add-sites__icon">↗</span><div><b>Add websites to this workspace</b><p>Paste one URL per line to fill multiple panels at once.</p></div></div><form id="add-sites-form" class="add-sites__form"><textarea id="bulk-urls" rows="1" placeholder="https://example.com&#10;https://another-site.com" aria-label="Website URLs"></textarea><button class="add-sites-button" type="submit"><span>+</span> Add websites</button></form></section>
       <section class="bookmark-section"><div class="bookmark-section__heading"><div><span class="section-kicker">QUICK ACCESS</span><span class="bookmark-section__subtitle">Your saved websites, ready to open in a panel</span></div><span class="bookmark-count" id="bookmark-count">0 saved</span></div><div id="bookmark-list" class="bookmark-list"></div></section>
-      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to four blank panels">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open video links in separate tabs so they can continue while MultiView is closed">▶ Keep videos playing in tabs</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
+      <div class="views-heading"><div><h2>Your views</h2><span>Drag panels to rearrange · Each panel works independently</span></div><div class="views-heading__actions"><button id="clear-all-views" class="danger-button" type="button" title="Remove all loaded websites and reset to one blank panel">Close all windows</button><button id="open-video-tabs" class="quiet-button" type="button" title="Open unique video links in separate tabs for manual playback">▶ Open video links</button><button id="open-all" class="quiet-button" type="button" title="Open every configured website in its own browser tab">↗ Open all in tabs</button><a class="quiet-button" href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube Studio analytics</a><span class="views-hint"><span class="views-hint-dot"></span> Saved workspace</span></div></div><div id="view-grid" class="view-grid"></div>
       <footer class="app-footer"><span><b>MultiView</b> · Your workspace, your way.</span><span>Websites control whether they allow embedded viewing.</span></footer>
     </section>
   </main>
@@ -226,7 +226,7 @@ export class MultiViewApp {
   renderRefreshControls(){
     const pause=this.root.querySelector("#pause-refresh");pause.disabled=!this.workspace.refreshInterval;
     pause.replaceChildren(icon(this.refreshPaused?"play":"pause"),el("span",{text:this.refreshPaused?"Resume":"Pause"}));
-    this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh all"}));
+    this.root.querySelector("#reload-all").replaceChildren(icon("refresh"),el("span",{text:"Refresh web pages"}));
   }
   configureRefresh(){this.refreshController.configure(this.workspace.refreshInterval,this.refreshPaused);}
   saveForBackground(){
@@ -504,11 +504,9 @@ export class MultiViewApp {
       return getMediaDescriptor(view.url).type!=="website";
     });
     if(!targets.length)return this.toast("Add a YouTube link or video URL first.");
-    targets.forEach(view=>{
-      const playerUrl=getMediaDescriptor(view.url,{autoPlay:true}).src;
-      window.open(playerUrl,"_blank","noopener,noreferrer");
-    });
-    this.toast(`Requested ${targets.length} video tabs with muted autoplay. Keep those tabs open; you can close the MultiView dashboard. Allow pop-ups if the browser blocks them.`);
+    const links=[...new Set(targets.map(view=>view.url))];
+    links.forEach(url=>window.open(url,"_blank","noopener,noreferrer"));
+    this.toast(`Requested ${links.length} unique video links for manual playback. Allow pop-ups if blocked.`);
   }
   openAllViews(){
     const targets=this.workspace.views.slice(0,this.workspace.layout).filter(view=>view.url);
@@ -522,13 +520,11 @@ export class MultiViewApp {
       const parts=this.panelNodes.get(view.id)?._parts;
       if(!parts)return;
       const media=getMediaDescriptor(view.url,{autoPlay:this.workspace.autoPlayVideos!==false});
-      if(media.type==="video"&&parts.video){
-        parts.video.pause();parts.video.src=media.src;parts.video.load();count++;
-      }else if(parts.frame){
+      if(media.type==="website"&&parts.loaded&&parts.frame&&!parts.frame.hidden){
         parts.frame.src=media.src;count++;
       }
     });
-    if(showToast)this.toast(count?`Refreshing ${count} panel${count===1?"":"s"}.`:"Add a website or video before refreshing.");
+    if(showToast)this.toast(count?`Refreshing ${count} website panel${count===1?"":"s"}.`:"No loaded website panels to refresh. Video players are skipped.");
   }
   openView(id){
     const view=this.workspace.views.find(item=>item.id===id);
